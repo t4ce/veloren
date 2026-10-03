@@ -1,3 +1,4 @@
+#![no_main]
 #![deny(unsafe_code)]
 #![deny(clippy::clone_on_ref_ptr)]
 
@@ -61,7 +62,24 @@ fn main() -> io::Result<()> {
 
     let shutdown_signal = Arc::new(AtomicBool::new(false));
 
-    let _guards = common_frontend::init(None, &|| LOG.clone());
+    // Create the multi-thread Tokio runtime before logging so the TRUEOS
+    // tracing-appender worker can run as a Tokio task rather than an OS thread.
+    let runtime = Arc::new(
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .worker_threads((num_cpus::get() / 4).max(MIN_RECOMMENDED_TOKIO_THREADS))
+            .thread_name_fn(|| {
+                static ATOMIC_ID: AtomicUsize = AtomicUsize::new(0);
+                let id = ATOMIC_ID.fetch_add(1, Ordering::SeqCst);
+                format!("tokio-server-{}", id)
+            })
+            .build()
+            .unwrap(),
+    );
+    let _guards = {
+        let _runtime_context = runtime.enter();
+        common_frontend::init(None, &|| LOG.clone())
+    };
 
     // Load settings
     let settings = settings::Settings::load().ok_or(io::ErrorKind::Other)?;
@@ -88,22 +106,6 @@ fn main() -> io::Result<()> {
         path.push(server::DEFAULT_DATA_DIR_NAME);
         path
     };
-
-    // We don't need that many threads in the async pool, at least 2 but generally
-    // 25% of all available will do
-    // TODO: evaluate std::thread::available_concurrency as a num_cpus replacement
-    let runtime = Arc::new(
-        tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .worker_threads((num_cpus::get() / 4).max(MIN_RECOMMENDED_TOKIO_THREADS))
-            .thread_name_fn(|| {
-                static ATOMIC_ID: AtomicUsize = AtomicUsize::new(0);
-                let id = ATOMIC_ID.fetch_add(1, Ordering::SeqCst);
-                format!("tokio-server-{}", id)
-            })
-            .build()
-            .unwrap(),
-    );
 
     #[cfg(feature = "hot-agent")]
     {
@@ -416,4 +418,13 @@ fn server_loop(
         common_base::tracy_client::frame_mark();
     }
     Ok(())
+}
+
+#[allow(unsafe_code)]
+#[unsafe(no_mangle)]
+pub extern "C" fn _start() -> ! {
+    main();
+    loop {
+        core::hint::spin_loop();
+    }
 }

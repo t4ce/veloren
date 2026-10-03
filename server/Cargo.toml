@@ -8,6 +8,7 @@ license.workspace = true
 workspace = true
 
 [features]
+embedded-auth-roots = ["dep:hyper-rustls", "dep:hyper-util", "dep:http-body-util", "dep:bytes"]
 redb-backend = ["dep:redb"]
 worldgen = ["server-agent/worldgen"]
 simd = ["vek/platform_intrinsics"]
@@ -20,6 +21,10 @@ hot-site = ["world/use-dyn-lib"]
 default = ["worldgen", "plugins", "persistent_world", "simd"]
 
 [dependencies]
+hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "ring", "webpki-tokio"], optional = true }
+hyper-util = { version = "0.1", features = ["client-legacy", "http1", "tokio"], optional = true }
+http-body-util = { version = "0.1", optional = true }
+bytes = { version = "1", optional = true }
 common = { package = "veloren-common", path = "../common" }
 common-base = { package = "veloren-common-base", path = "../common/base" }
 veloren-query-server = { package = "veloren-query-server", path = "../common/query_server", default-features = false, features = [

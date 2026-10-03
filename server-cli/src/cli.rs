@@ -142,7 +142,7 @@ pub struct ArgvApp {
     /// terminal driver will send SIGTTIN to it otherwise. <https://www.gnu.org/savannah-checkouts/gnu/bash/manual/bash.html#Redirections> and you dont want to use `stty -tostop`
     /// or `nohub` or `tmux` or `screen` or `<<< \"\\004\"` to the program.
     pub non_interactive: bool,
-    #[arg(long)]
+    #[arg(long, env = "VELOREN_NO_AUTH")]
     /// Run without auth enabled
     pub no_auth: bool,
     #[arg(default_value_t, long, short, value_parser = clap::value_parser!(SqlLogMode))]

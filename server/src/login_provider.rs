@@ -61,6 +61,30 @@ impl Component for PendingLogin {
     type Storage = specs::DenseVecStorage<Self>;
 }
 
+/// Standalone builds carry public CA roots and need no native certificate
+/// store.
+fn create_auth_client(
+    scheme: authc::Scheme,
+    authority: authc::Authority,
+) -> Result<AuthClient, AuthClientError> {
+    #[cfg(feature = "embedded-auth-roots")]
+    {
+        let connector = hyper_rustls::HttpsConnectorBuilder::new()
+            .with_webpki_roots()
+            .https_or_http()
+            .enable_http1()
+            .build();
+        let client =
+            hyper_util::client::legacy::Client::builder(hyper_util::rt::TokioExecutor::new())
+                .build::<_, http_body_util::Full<bytes::Bytes>>(connector);
+        AuthClient::with_client(scheme, authority, client)
+    }
+    #[cfg(not(feature = "embedded-auth-roots"))]
+    {
+        AuthClient::new(scheme, authority)
+    }
+}
+
 pub struct LoginProvider {
     runtime: Arc<Runtime>,
     auth_server: Option<Arc<AuthClient>>,
@@ -80,7 +104,10 @@ impl LoginProvider {
                 .parse::<authc::Authority>()
                 .expect("invalid auth url authority");
 
-            Arc::new(AuthClient::new(scheme, authority).expect("insecure auth scheme"))
+            Arc::new(
+                create_auth_client(scheme, authority)
+                    .expect("Failed to initialize authentication client"),
+            )
         });
 
         Self {
@@ -225,5 +252,25 @@ impl LoginProvider {
             },
             None => Ok(fallback_alias.into()),
         }
+    }
+}
+
+#[cfg(all(test, feature = "embedded-auth-roots"))]
+mod embedded_auth_tests {
+    #[test]
+    fn auth_client_initializes_without_a_native_certificate_store() {
+        // Creating the client performs no network I/O or native CA discovery.
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let _guard = runtime.enter();
+        assert!(
+            super::create_auth_client(
+                "https".parse().unwrap(),
+                "auth.veloren.net".parse().unwrap(),
+            )
+            .is_ok()
+        );
     }
 }

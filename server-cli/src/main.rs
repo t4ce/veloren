@@ -12,19 +12,19 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 /// `server-cli` interface commands not to be confused with the commands sent
 /// from the client to the server
 mod cli;
+mod console;
+mod log_buffer;
 mod settings;
 mod shutdown_coordinator;
-mod tui_runner;
-mod tuilog;
 mod web;
 use crate::{
     cli::{
         Admin, ArgvApp, ArgvCommand, BenchParams, Message, MessageReturn, SharedCommand, Shutdown,
     },
+    console::Console,
+    log_buffer::LogBuffer,
     settings::Settings,
     shutdown_coordinator::ShutdownCoordinator,
-    tui_runner::Tui,
-    tuilog::TuiLog,
 };
 use common::{
     clock::Clock,
@@ -44,7 +44,7 @@ use tokio::sync::Notify;
 use tracing::{info, trace};
 
 lazy_static::lazy_static! {
-    pub static ref LOG: TuiLog<'static> = TuiLog::default();
+    pub static ref LOG: LogBuffer = LogBuffer::default();
 }
 const TPS: u64 = 30;
 
@@ -55,21 +55,13 @@ fn main() -> io::Result<()> {
     use clap::Parser;
     let app = ArgvApp::parse();
 
-    let basic = !app.tui || app.command.is_some();
     let noninteractive = app.non_interactive;
     let no_auth = app.no_auth;
     let sql_log_mode = app.sql_log_mode;
 
-    // noninteractive implies basic
-    let basic = basic || noninteractive;
-
     let shutdown_signal = Arc::new(AtomicBool::new(false));
 
-    let (_guards, _guards2) = if basic {
-        (Vec::new(), common_frontend::init_stdout(None))
-    } else {
-        (common_frontend::init(None, &|| LOG.clone()), Vec::new())
-    };
+    let _guards = common_frontend::init(None, &|| LOG.clone());
 
     // Load settings
     let settings = settings::Settings::load().ok_or(io::ErrorKind::Other)?;
@@ -192,17 +184,7 @@ fn main() -> io::Result<()> {
         };
     }
 
-    // Panic hook to ensure that console mode is set back correctly if in non-basic
-    // mode
-    if !basic {
-        let hook = std::panic::take_hook();
-        std::panic::set_hook(Box::new(move |info| {
-            Tui::shutdown(basic);
-            hook(info);
-        }));
-    }
-
-    let tui = (!noninteractive).then(|| Tui::run(basic));
+    let console = (!noninteractive).then(Console::run);
 
     info!("Starting server...");
 
@@ -274,7 +256,7 @@ fn main() -> io::Result<()> {
         server,
         bench,
         settings,
-        tui,
+        console,
         web_ui_request_r,
         shutdown_signal,
     )?;
@@ -288,7 +270,7 @@ fn server_loop(
     mut server: Server,
     bench: Option<BenchParams>,
     settings: Settings,
-    tui: Option<Tui>,
+    console: Option<Console>,
     mut web_ui_request_r: tokio::sync::mpsc::Receiver<(
         Message,
         tokio::sync::oneshot::Sender<MessageReturn>,
@@ -390,14 +372,7 @@ fn server_loop(
                     let _ = response.send(MessageReturn::Players(players));
                 },
                 Message::ListLogs => {
-                    let log = LOG.inner.lock().unwrap();
-                    let lines: Vec<_> = log
-                        .lines
-                        .iter()
-                        .rev()
-                        .take(30)
-                        .map(|l| l.to_string())
-                        .collect();
+                    let lines = LOG.recent_lines(30);
                     let _ = response.send(MessageReturn::Logs(lines));
                 },
                 Message::SendGlobalMsg { msg } => {
@@ -409,8 +384,8 @@ fn server_loop(
             false
         };
 
-        if let Some(tui) = tui.as_ref() {
-            while let Ok(msg) = tui.msg_r.try_recv() {
+        if let Some(console) = console.as_ref() {
+            while let Ok(msg) = console.msg_r.try_recv() {
                 let (sender, mut recv) = tokio::sync::oneshot::channel();
                 if handle_msg(msg, sender) {
                     info!("Closing the server");
@@ -419,7 +394,9 @@ fn server_loop(
                 if let Ok(msg_answ) = recv.try_recv() {
                     match msg_answ {
                         MessageReturn::Players(players) => info!("Players: {:?}", players),
-                        MessageReturn::Logs(_) => info!("skipp sending logs to tui"),
+                        MessageReturn::Logs(logs) => {
+                            println!("Recent server logs:\n{}", logs.join("\n"));
+                        },
                     };
                 }
             }

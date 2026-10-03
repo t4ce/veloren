@@ -96,13 +96,13 @@ pub enum MessageReturn {
 
 #[derive(Parser)]
 #[command(
-    name = "Veloren server TUI",
+    name = "Veloren server command",
     version = common::util::DISPLAY_VERSION.as_str(),
-    about = "The veloren server tui allows sending commands directly to the running server.",
+    about = "Send commands directly to the running server.",
     author = "The veloren devs <https://gitlab.com/veloren/veloren>",
 )]
 #[clap(no_binary_name = true)]
-pub struct TuiApp {
+pub struct ServerCommandApp {
     #[command(subcommand)]
     command: Message,
 }
@@ -135,8 +135,6 @@ pub enum ArgvCommand {
 )]
 pub struct ArgvApp {
     #[arg(long, short)]
-    /// Enables the tui
-    pub tui: bool,
     #[arg(long, short)]
     /// Doesn't listen on STDIN
     ///
@@ -155,7 +153,7 @@ pub struct ArgvApp {
 }
 
 pub fn parse_command(input: &str, msg_s: &mut Sender<Message>) {
-    match TuiApp::try_parse_from(shell_words::split(input).unwrap_or_default()) {
+    match ServerCommandApp::try_parse_from(shell_words::split(input).unwrap_or_default()) {
         Ok(message) => {
             msg_s
                 .send(message.command)

@@ -42,16 +42,13 @@ world = { package = "veloren-world", path = "../world", optional = true }
 
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 num_cpus = "1.0"
-cansi = "2.2.1"
 clap = { workspace = true }
-crossterm = "0.29"
 lazy_static = { workspace = true }
 signal-hook = { workspace = true }
 shell-words = "1.0.0"
 tracing = { workspace = true }
 ron = { workspace = true }
 serde = { workspace = true, features = ["rc", "derive"] }
-ratatui = { version = "0.30.0", features = ["crossterm"] }
 rand = { workspace = true }
 # ECS
 specs = { workspace = true }

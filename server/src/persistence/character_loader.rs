@@ -1,3 +1,4 @@
+use super::Connection;
 use crate::persistence::{
     ConnectionMode, DatabaseSettings, PersistedComponents,
     character::{load_character_data, load_character_list},
@@ -9,7 +10,6 @@ use common::{
     event::UpdateCharacterMetadata,
 };
 use crossbeam_channel::{self, TryIter};
-use rusqlite::Connection;
 use std::sync::{Arc, RwLock};
 use tracing::{debug, error};
 use vek::Vec3;
@@ -54,6 +54,7 @@ impl CharacterScreenResponse {
             CharacterScreenResponseKind::CharacterData(box Err(_))
                 | CharacterScreenResponseKind::CharacterList(Err(_))
                 | CharacterScreenResponseKind::CharacterCreation(Err(_))
+                | CharacterScreenResponseKind::CharacterEdit(Err(_))
         )
     }
 }
@@ -94,8 +95,7 @@ impl CharacterLoader {
                 // Unwrap here is safe as there is no code that can panic when the write lock is
                 // taken that could cause the RwLock to become poisoned.
                 //
-                // This connection -must- remain read-only to avoid lock contention with the
-                // CharacterUpdater thread.
+                // The loader only observes committed snapshots; the updater owns writes.
                 let mut conn =
                     establish_connection(&settings.read().unwrap(), ConnectionMode::ReadOnly);
 

@@ -1,13 +1,17 @@
+#[cfg_attr(
+    feature = "redb-backend",
+    derive(Clone, serde::Serialize, serde::Deserialize)
+)]
 pub struct Character {
     pub character_id: i64,
-    #[expect(dead_code)]
+    #[cfg_attr(not(feature = "redb-backend"), expect(dead_code))]
     pub player_uuid: String,
     pub alias: String,
     pub waypoint: Option<String>,
     pub hardcore: i64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Item {
     pub item_id: i64,
     pub parent_container_item_id: i64,
@@ -18,13 +22,21 @@ pub struct Item {
     pub properties: String,
 }
 
+#[cfg_attr(
+    feature = "redb-backend",
+    derive(Clone, serde::Serialize, serde::Deserialize)
+)]
 pub struct Body {
-    #[expect(dead_code)]
+    #[cfg_attr(not(feature = "redb-backend"), expect(dead_code))]
     pub body_id: i64,
     pub variant: String,
     pub body_data: String,
 }
 
+#[cfg_attr(
+    feature = "redb-backend",
+    derive(Clone, serde::Serialize, serde::Deserialize)
+)]
 pub struct SkillGroup {
     pub entity_id: i64,
     pub skill_group_kind: String,
@@ -34,6 +46,10 @@ pub struct SkillGroup {
     pub hash_val: Vec<u8>,
 }
 
+#[cfg_attr(
+    feature = "redb-backend",
+    derive(Clone, serde::Serialize, serde::Deserialize)
+)]
 pub struct Pet {
     pub database_id: i64,
     // TODO: add ability to store and change pet names
@@ -45,14 +61,18 @@ pub struct Pet {
     // similar to current npcs that have both translated and hardcoded names
     // using `name-misc-with-alias-template`.
     // Or even some better system for displaying complex names such as this.
-    #[expect(unused)]
+    #[cfg_attr(not(feature = "redb-backend"), expect(unused))]
     pub name: String,
     pub body_variant: String,
     pub body_data: String,
 }
 
+#[cfg_attr(
+    feature = "redb-backend",
+    derive(Clone, serde::Serialize, serde::Deserialize)
+)]
 pub struct AbilitySets {
-    #[expect(dead_code)]
+    #[cfg_attr(not(feature = "redb-backend"), expect(dead_code))]
     pub entity_id: i64,
     pub ability_sets: String,
 }

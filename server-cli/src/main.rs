@@ -128,10 +128,8 @@ fn main() -> io::Result<()> {
     // Relative to data_dir
     const PERSISTENCE_DB_DIR: &str = "saves";
 
-    let database_settings = DatabaseSettings {
-        db_dir: server_data_dir.join(PERSISTENCE_DB_DIR),
-        sql_log_mode,
-    };
+    let database_settings =
+        DatabaseSettings::new(server_data_dir.join(PERSISTENCE_DB_DIR), sql_log_mode);
 
     let mut bench = None;
     if let Some(command) = app.command {

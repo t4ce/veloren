@@ -7,6 +7,7 @@ pub enum Error {
     NetworkErr(NetworkError),
     ParticipantErr(ParticipantError),
     StreamErr(StreamError),
+    #[cfg(not(feature = "redb-backend"))]
     DatabaseErr(rusqlite::Error),
     PersistenceErr(PersistenceError),
     RtsimError(ron::Error),
@@ -26,6 +27,7 @@ impl From<StreamError> for Error {
 }
 
 // TODO: Don't expose rusqlite::Error from persistence module
+#[cfg(not(feature = "redb-backend"))]
 impl From<rusqlite::Error> for Error {
     fn from(err: rusqlite::Error) -> Self { Error::DatabaseErr(err) }
 }
@@ -40,6 +42,7 @@ impl Display for Error {
             Self::NetworkErr(err) => write!(f, "Network Error: {}", err),
             Self::ParticipantErr(err) => write!(f, "Participant Error: {}", err),
             Self::StreamErr(err) => write!(f, "Stream Error: {}", err),
+            #[cfg(not(feature = "redb-backend"))]
             Self::DatabaseErr(err) => write!(f, "Database Error: {}", err),
             Self::PersistenceErr(err) => write!(f, "Persistence Error: {}", err),
             Self::RtsimError(err) => write!(f, "Rtsim Error: {}", err),

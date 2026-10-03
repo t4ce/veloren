@@ -10,6 +10,7 @@ use crate::persistence::{
     establish_connection,
 };
 use crossbeam_channel::TryIter;
+#[cfg(not(feature = "redb-backend"))]
 use rusqlite::DropBehavior;
 use specs::Entity;
 use std::{
@@ -102,7 +103,7 @@ pub struct CharacterUpdater {
 }
 
 impl CharacterUpdater {
-    pub fn new(settings: Arc<RwLock<DatabaseSettings>>) -> rusqlite::Result<Self> {
+    pub fn new(settings: Arc<RwLock<DatabaseSettings>>) -> Result<Self, PersistenceError> {
         let (update_tx, update_rx) = crossbeam_channel::unbounded::<CharacterUpdaterAction>();
         let (response_tx, response_rx) = crossbeam_channel::unbounded::<CharacterUpdaterMessage>();
 
@@ -419,6 +420,7 @@ fn execute_batch_update(
     connection: &mut VelorenConnection,
 ) -> Result<(), PersistenceError> {
     let mut transaction = connection.connection.transaction()?;
+    #[cfg(not(feature = "redb-backend"))]
     transaction.set_drop_behavior(DropBehavior::Rollback);
     trace!("Transaction started for character batch update");
     updates.into_iter().try_for_each(|event| match event {

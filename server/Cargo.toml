@@ -8,6 +8,7 @@ license.workspace = true
 workspace = true
 
 [features]
+redb-backend = ["dep:redb"]
 worldgen = ["server-agent/worldgen"]
 simd = ["vek/platform_intrinsics"]
 plugins = ["common-state/plugins", "common-systems/plugins", "common/plugins"]
@@ -75,7 +76,10 @@ noise = { workspace = true }
 censor = "0.3"
 slotmap = { workspace = true }
 
-rusqlite = { workspace = true }
-refinery = { version = "0.9", features = ["rusqlite"] }
+redb = { version = "=4.2.0", optional = true, default-features = false }
 
 schnellru = "0.2.1"
+
+[target.'cfg(not(target_os = "trueos"))'.dependencies]
+rusqlite = { workspace = true }
+refinery = { version = "0.9", features = ["rusqlite"] }

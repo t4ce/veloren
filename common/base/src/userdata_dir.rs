@@ -12,8 +12,9 @@ const VELOREN_USERDATA_ENV: &str = "VELOREN_USERDATA";
 ///
 /// The first specified in this list is used.
 ///   1. The VELOREN_USERDATA runtime environment variable
-///   2. The VELOREN_USERDATA_STRATEGY compile time environment variable
-///   3. The CARGO_WORKSPACE_DIR/userdata compile time environment variable
+///   2. On TRUEOS, the app-relative `userdata` directory
+///   3. The VELOREN_USERDATA_STRATEGY compile time environment variable
+///   4. The CARGO_WORKSPACE_DIR/userdata compile time environment variable
 ///      defined in .cargo/config.toml
 ///
 /// ### `VELOREN_USERDATA_STRATEGY` environment variable
@@ -29,7 +30,16 @@ pub fn userdata_dir() -> PathBuf {
     // 1. The VELOREN_USERDATA runtime environment variable
     std::env::var_os(VELOREN_USERDATA_ENV)
         .map(PathBuf::from)
-        // 2. The VELOREN_USERDATA_STRATEGY compile time environment variable
+        // TRUEOS resolves relative paths inside the app's filesystem root.
+        // Executable discovery is unsupported; shared storage can be selected
+        // explicitly with VELOREN_USERDATA=common/veloren/userdata.
+        .or_else(|| {
+            #[cfg(target_os = "trueos")]
+            { Some(PathBuf::from("userdata")) }
+            #[cfg(not(target_os = "trueos"))]
+            { None }
+        })
+        // 3. The VELOREN_USERDATA_STRATEGY compile time environment variable
         .or_else(|| match option_env!("VELOREN_USERDATA_STRATEGY") {
             // "system" => system specific project data directory
             Some(s) if s.eq_ignore_ascii_case("system") => Some(directories_next::ProjectDirs::from("net", "veloren", "veloren")
@@ -56,7 +66,7 @@ pub fn userdata_dir() -> PathBuf {
             },
             _ => None,
         })
-        // 3. The CARGO_WORKSPACE_DIR/userdata compile time environment variable
+        // 4. The CARGO_WORKSPACE_DIR/userdata compile time environment variable
         //    defined in .cargo/config.toml
         .unwrap_or_else(|| {
             let mut path = PathBuf::from(env!("CARGO_WORKSPACE_DIR"));

@@ -64,6 +64,12 @@ fn main() -> io::Result<()> {
 
     let shutdown_signal = Arc::new(AtomicBool::new(false));
 
+    // Declare before runtime/guards: the host may reclaim the Hull only after
+    // server persistence, logging, and all Tokio/std workers have returned.
+    #[cfg(target_os = "trueos")]
+    let _vm_shutdown = trueos::shutdown::ShutdownGuard::register()
+        .map_err(|_| io::Error::other("Failed to register cooperative VM shutdown"))?;
+
     // Create the multi-thread Tokio runtime before logging so the TRUEOS
     // tracing-appender worker can run as a Tokio task rather than an OS thread.
     let runtime = Arc::new(
@@ -204,12 +210,19 @@ fn main() -> io::Result<()> {
     let web_port = &settings.web_address.port();
     // Create server
     #[cfg_attr(not(feature = "worldgen"), expect(unused_mut))]
+    let server_init_started = Instant::now();
     let mut server = Server::new(
         server_settings,
         editable_settings,
         database_settings,
         &server_data_dir,
-        &|_| {},
+        &|stage| {
+            eprintln!(
+                "velosrv: startup progress={stage:?} elapsed_s={}",
+                server_init_started.elapsed().as_secs()
+            );
+            info!(?stage, "Server initialization progress");
+        },
         Arc::clone(&runtime),
     )
     .expect("Failed to create server instance!");
@@ -320,6 +333,17 @@ fn server_loop(
         #[cfg(target_os = "trueos")]
         execution_heartbeat::tick_enter(tick_no);
         // Terminate the server if instructed to do so by the shutdown coordinator
+        #[cfg(target_os = "trueos")]
+        if trueos::shutdown::requested()
+            .map_err(|_| io::Error::other("Failed to poll VM shutdown"))?
+        {
+            eprintln!("velosrv: shutdown stage=host-stop-observed");
+            server.notify_players(common_net::msg::ServerGeneral::server_msg(
+                common::comp::ChatType::Meta,
+                common::comp::Content::Plain("Server shutting down".into()),
+            ));
+            break;
+        }
         if shutdown_coordinator.check(&mut server, &settings) {
             break;
         }

@@ -137,15 +137,24 @@ impl World {
         report_stage: &(dyn Fn(WorldGenerateStage) + Send + Sync),
     ) -> (Self, IndexOwned) {
         prof_span!("World::generate");
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: worldgen stage=worker-submit");
         // NOTE: Generating index first in order to quickly fail if the color manifest
         // is broken.
         threadpool.install(|| {
+            #[cfg(target_os = "trueos")]
+            eprintln!("velosrv: worldgen stage=index-start");
             let mut index = Index::new(seed);
+            #[cfg(target_os = "trueos")]
+            eprintln!("velosrv: worldgen stage=index-complete");
             let calendar = opts.calendar.clone();
 
             let mut sim = sim::WorldSim::generate(seed, opts, threadpool, &|stage| {
                 report_stage(WorldGenerateStage::WorldSimGenerate(stage))
             });
+
+            #[cfg(target_os = "trueos")]
+            eprintln!("velosrv: worldgen stage=terrain-simulation-complete");
 
             let civs =
                 civ::Civs::generate(seed, &mut sim, &mut index, calendar.as_ref(), &|stage| {

@@ -767,7 +767,14 @@ impl WorldSim {
         let world_file = opts.world_file;
 
         // Parse out the contents of various map formats into the values we need.
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: worldgen stage=map-load-start");
         let (parsed_world_file, map_size_lg, gen_opts) = world_file.load_content();
+        #[cfg(target_os = "trueos")]
+        eprintln!(
+            "velosrv: worldgen stage=map-load-complete loaded={}",
+            parsed_world_file.is_some()
+        );
         // Currently only used with LoadOrGenerate to know if we need to
         // overwrite world file
         let fresh = parsed_world_file.is_none();

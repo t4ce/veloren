@@ -31,7 +31,6 @@ use common_i18n::{Content, LocalizationArg};
 use common_net::sync::WorldSyncExt;
 use i18n::Localization;
 use itertools::Itertools;
-use levenshtein::levenshtein;
 use specs::{Join, WorldExt};
 use strum::{EnumIter, IntoEnumIterator};
 
@@ -427,7 +426,7 @@ fn invalid_command_message(client: &Client, user_entered_invalid_command: String
 
     let most_similar_cmd = usable_commands
         .clone()
-        .min_by_key(|cmd| levenshtein(&user_entered_invalid_command, cmd))
+        .min_by_key(|cmd| levenshtein_distance(&user_entered_invalid_command, cmd))
         .expect("At least one command exists.");
 
     let commands_with_same_prefix = usable_commands
@@ -451,6 +450,63 @@ fn invalid_command_message(client: &Client, user_entered_invalid_command: String
             ),
         ),
     ])
+}
+
+/// Returns the Levenshtein edit distance between two strings, counting Unicode
+/// scalar values in the same way as the `levenshtein` crate.
+fn levenshtein_distance(a: &str, b: &str) -> usize {
+    if a == b {
+        return 0;
+    }
+
+    // Keep the working row as short as possible. `chars()` preserves the old
+    // helper's Unicode behavior instead of measuring UTF-8 bytes.
+    let (shorter, longer) = if a.chars().count() <= b.chars().count() {
+        (a, b)
+    } else {
+        (b, a)
+    };
+    let shorter: Vec<char> = shorter.chars().collect();
+    let mut row: Vec<usize> = (0..=shorter.len()).collect();
+
+    for (longer_index, longer_char) in longer.chars().enumerate() {
+        let mut diagonal = row[0];
+        row[0] = longer_index + 1;
+
+        for (shorter_index, shorter_char) in shorter.iter().enumerate() {
+            let above = row[shorter_index + 1];
+            row[shorter_index + 1] = if *shorter_char == longer_char {
+                diagonal
+            } else {
+                1 + diagonal.min(above).min(row[shorter_index])
+            };
+            diagonal = above;
+        }
+    }
+
+    row[shorter.len()]
+}
+
+#[cfg(test)]
+mod levenshtein_distance_tests {
+    use super::levenshtein_distance;
+
+    #[test]
+    fn computes_common_edit_distances() {
+        assert_eq!(levenshtein_distance("kitten", "sitting"), 3);
+        assert_eq!(levenshtein_distance("/help", "/help"), 0);
+        assert_eq!(levenshtein_distance("mute", "unmute"), 2);
+        assert_eq!(levenshtein_distance("", ""), 0);
+        assert_eq!(levenshtein_distance("", "猫é"), 2);
+        assert_eq!(levenshtein_distance("猫é", ""), 2);
+        assert_eq!(levenshtein_distance("sitting", "kitten"), 3);
+    }
+
+    #[test]
+    fn counts_unicode_scalar_values_instead_of_bytes() {
+        assert_eq!(levenshtein_distance("é", "e"), 1);
+        assert_eq!(levenshtein_distance("猫", "犬"), 1);
+    }
 }
 
 /// Executes a client-side command.

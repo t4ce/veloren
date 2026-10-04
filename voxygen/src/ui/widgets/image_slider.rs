@@ -6,7 +6,8 @@ use conrod_core::{
     widget::{self, Image},
     widget_ids,
 };
-use num::{Float, Integer, Num, NumCast};
+use num_integer::Integer;
+use num_traits::{Float, Num, NumCast};
 
 pub enum Discrete {}
 pub enum Continuous {}

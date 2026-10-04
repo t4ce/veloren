@@ -56,7 +56,7 @@ use common_base::{prof_span, span};
 use common_state::State;
 use comp::item::Reagent;
 use hashbrown::HashMap;
-use num::traits::{Float, FloatConst};
+use num_traits::{Float, FloatConst};
 use specs::{Entity as EcsEntity, Join, LendJoin, WorldExt};
 use vek::*;
 

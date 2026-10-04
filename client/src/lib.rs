@@ -79,8 +79,7 @@ use hickory_resolver::{
 };
 use image::DynamicImage;
 use network::{ConnectAddr, Network, Participant, Pid, Stream};
-use num::traits::FloatConst;
-use tokio_parallel::prelude::*;
+use num_traits::FloatConst;
 use rustls::client::danger::ServerCertVerified;
 use specs::Component;
 use std::{
@@ -92,6 +91,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::runtime::Runtime;
+use tokio_parallel::prelude::*;
 use tracing::{debug, error, trace, warn};
 use vek::*;
 

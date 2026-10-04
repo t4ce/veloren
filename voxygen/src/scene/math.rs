@@ -1,6 +1,6 @@
 use core::{iter, mem};
 use hashbrown::HashMap;
-use num::traits::Float;
+use num_traits::Float;
 /*
 pub use vek::{geom::repr_simd::*, mat::repr_simd::column_major::Mat4, ops::*, vec::repr_simd::*};
 */

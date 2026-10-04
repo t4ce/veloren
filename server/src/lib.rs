@@ -843,6 +843,11 @@ impl Server {
         // 8) Update Metrics with current data
         // 9) Finish the tick, passing control of the main thread back to the frontend
 
+        #[cfg(target_os = "trueos")]
+        if self.state.ecs().read_resource::<Tick>().0 == 1 {
+            eprintln!("velosrv: first-tick stage=calendar-complete");
+        }
+
         // 1) Build up a list of events for this frame, to be passed to the frontend.
         let mut frontend_events = Vec::new();
 
@@ -852,6 +857,11 @@ impl Server {
 
         // 3) Handle inputs from clients
         self.handle_new_connections(&mut frontend_events);
+
+        #[cfg(target_os = "trueos")]
+        if self.state.ecs().read_resource::<Tick>().0 == 1 {
+            eprintln!("velosrv: first-tick stage=connections-handled");
+        }
 
         let before_state_tick = Instant::now();
 
@@ -874,6 +884,10 @@ impl Server {
         // in sys/terrain.rs
         let mut state_tick_metrics = Default::default();
         let server_constants = (*self.state.ecs().read_resource::<ServerConstants>()).clone();
+        #[cfg(target_os = "trueos")]
+        if self.state.ecs().read_resource::<Tick>().0 == 1 {
+            eprintln!("velosrv: first-tick stage=state-tick-enter");
+        }
         self.state.tick(
             dt,
             false,
@@ -881,6 +895,11 @@ impl Server {
             &server_constants,
             on_block_update,
         );
+
+        #[cfg(target_os = "trueos")]
+        if self.state.ecs().read_resource::<Tick>().0 == 1 {
+            eprintln!("velosrv: first-tick stage=state-tick-complete");
+        }
 
         let before_handle_events = Instant::now();
 

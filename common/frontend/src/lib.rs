@@ -8,6 +8,20 @@ use tracing_subscriber::{
     EnvFilter, filter::LevelFilter, fmt::writer::MakeWriter, prelude::*, registry,
 };
 
+// TRUEOS std file writes are buffered until an explicit sync or close. Commit
+// each logging batch so an operator can read the live log through TRUEOSFS.
+#[cfg(all(target_os = "trueos", not(feature = "tracy")))]
+struct SyncedLogFile(fs::File);
+
+#[cfg(all(target_os = "trueos", not(feature = "tracy")))]
+impl std::io::Write for SyncedLogFile {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        std::io::Write::write(&mut self.0, bytes)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> { self.0.sync_data() }
+}
+
 const RUST_LOG_ENV: &str = "RUST_LOG";
 
 /// Initialise tracing and logging for the logs_path.
@@ -133,6 +147,15 @@ where
     if let Some((path, file)) = log_path_file {
         match fs::create_dir_all(path) {
             Ok(_) => {
+                #[cfg(target_os = "trueos")]
+                let file_appender = SyncedLogFile(
+                    fs::OpenOptions::new()
+                        .create(true)
+                        .append(true)
+                        .open(path.join(file))
+                        .expect("Failed to open server log file"),
+                );
+                #[cfg(not(target_os = "trueos"))]
                 let file_appender = tracing_appender::rolling::never(path, file); // It is actually rolling daily since the log name is changing daily
                 let (non_blocking_file, file_guard) = tracing_appender::non_blocking(file_appender);
                 guards.push(file_guard);

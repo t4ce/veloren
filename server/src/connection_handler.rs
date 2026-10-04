@@ -1,14 +1,26 @@
 use crate::{Client, ClientType, ServerInfo};
-use crossbeam_channel::{Receiver, Sender, bounded, unbounded};
+use crossbeam_channel::{Receiver, Sender, unbounded};
 use futures_util::future::FutureExt;
 use network::{Network, Participant, Promises};
 use std::time::Duration;
 use tokio::{runtime::Runtime, select, sync::oneshot};
-use tracing::{debug, error, trace, warn};
+use tracing::{debug, error, info, trace, warn};
 
 pub(crate) struct ServerInfoPacket {
     pub info: ServerInfo,
     pub time: f64,
+}
+
+// The request queue is drained synchronously by the game loop. Connection
+// setup must await its reply without parking a Tokio worker. The connection
+// handler initializes one participant at a time, so at most one request is
+// live.
+async fn request_server_info(
+    sender: &Sender<oneshot::Sender<ServerInfoPacket>>,
+) -> Result<ServerInfoPacket, Box<dyn std::error::Error>> {
+    let (reply, response) = oneshot::channel();
+    sender.send(reply)?;
+    Ok(response.await?)
 }
 
 pub(crate) type IncomingClient = Client;
@@ -23,7 +35,7 @@ pub(crate) struct ConnectionHandler {
     _network_receiver: oneshot::Receiver<Network>,
     thread_handle: Option<tokio::task::JoinHandle<()>>,
     pub client_receiver: Receiver<IncomingClient>,
-    pub info_requester_receiver: Receiver<Sender<ServerInfoPacket>>,
+    pub info_requester_receiver: Receiver<oneshot::Sender<ServerInfoPacket>>,
     stop_sender: Option<oneshot::Sender<()>>,
 }
 
@@ -38,7 +50,7 @@ impl ConnectionHandler {
 
         let (client_sender, client_receiver) = unbounded::<IncomingClient>();
         let (info_requester_sender, info_requester_receiver) =
-            bounded::<Sender<ServerInfoPacket>>(1);
+            unbounded::<oneshot::Sender<ServerInfoPacket>>();
 
         let thread_handle = Some(runtime.spawn(Self::work(
             network,
@@ -60,7 +72,7 @@ impl ConnectionHandler {
     async fn work(
         network: Network,
         client_sender: Sender<IncomingClient>,
-        info_requester_sender: Sender<Sender<ServerInfoPacket>>,
+        info_requester_sender: Sender<oneshot::Sender<ServerInfoPacket>>,
         stop_receiver: oneshot::Receiver<()>,
         network_sender: oneshot::Sender<Network>,
     ) {
@@ -110,11 +122,10 @@ impl ConnectionHandler {
     async fn init_participant(
         mut participant: Participant,
         client_sender: Sender<IncomingClient>,
-        info_requester_sender: Sender<Sender<ServerInfoPacket>>,
+        info_requester_sender: Sender<oneshot::Sender<ServerInfoPacket>>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         debug!("New Participant connected to the server");
-        let (sender, receiver) = bounded(1);
-        info_requester_sender.send(sender)?;
+        info!(pid = ?participant.remote_pid(), stage = "open-streams", "Client setup");
 
         let reliable = Promises::ORDERED | Promises::CONSISTENCY;
         let reliablec = reliable | Promises::COMPRESSED;
@@ -126,9 +137,11 @@ impl ConnectionHandler {
         let in_game_stream = participant.open(3, reliablec, 100_000).await?;
         let terrain_stream = participant.open(4, reliable, 20_000).await?;
 
-        let server_data = receiver.recv()?;
+        info!(pid = ?participant.remote_pid(), stage = "await-server-info", "Client setup");
+        let server_data = request_server_info(&info_requester_sender).await?;
 
         register_stream.send(server_data.info)?;
+        info!(pid = ?participant.remote_pid(), stage = "server-info-sent", "Client setup");
 
         const TIMEOUT: Duration = Duration::from_secs(5);
         let client_type = match select!(

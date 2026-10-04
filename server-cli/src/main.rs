@@ -14,6 +14,8 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 /// from the client to the server
 mod cli;
 mod console;
+#[cfg(target_os = "trueos")]
+mod execution_heartbeat;
 mod log_buffer;
 mod settings;
 mod shutdown_coordinator;
@@ -76,8 +78,16 @@ fn main() -> io::Result<()> {
             .build()
             .unwrap(),
     );
+    #[cfg(target_os = "trueos")]
+    execution_heartbeat::start(&runtime);
     let _guards = {
         let _runtime_context = runtime.enter();
+        #[cfg(target_os = "trueos")]
+        {
+            let log_dir = settings::data_dir().join("logs");
+            common_frontend::init(Some((&log_dir, "server.log")), &|| LOG.clone())
+        }
+        #[cfg(not(target_os = "trueos"))]
         common_frontend::init(None, &|| LOG.clone())
     };
 
@@ -187,6 +197,8 @@ fn main() -> io::Result<()> {
     let console = (!noninteractive).then(Console::run);
 
     info!("Starting server...");
+    #[cfg(target_os = "trueos")]
+    eprintln!("velosrv: startup stage=create-server log=userdata/server-cli/logs/server.log");
 
     let protocols_and_addresses = server_settings.gameserver_protocols.clone();
     let web_port = &settings.web_address.port();
@@ -202,6 +214,14 @@ fn main() -> io::Result<()> {
     )
     .expect("Failed to create server instance!");
 
+    #[cfg(target_os = "trueos")]
+    eprintln!("velosrv: startup stage=server-created");
+    #[cfg(target_os = "trueos")]
+    {
+        execution_heartbeat::phase(execution_heartbeat::READY);
+        let pool = Arc::clone(server.state().thread_pool());
+        execution_heartbeat::start_rayon_probe(&runtime, move |probe| pool.spawn(probe));
+    }
     let registry = Arc::clone(server.metrics_registry());
     let chat = server.chat_cache().clone();
     let metrics_shutdown = Arc::new(Notify::new());
@@ -297,14 +317,26 @@ fn server_loop(
         };
 
         tick_no += 1;
+        #[cfg(target_os = "trueos")]
+        execution_heartbeat::tick_enter(tick_no);
         // Terminate the server if instructed to do so by the shutdown coordinator
         if shutdown_coordinator.check(&mut server, &settings) {
             break;
         }
 
+        #[cfg(target_os = "trueos")]
+        if tick_no == 1 {
+            eprintln!("velosrv: startup stage=first-tick-enter");
+        }
         let events = server
             .tick(Input::default(), clock.game_dt())
             .expect("Failed to tick server");
+        #[cfg(target_os = "trueos")]
+        execution_heartbeat::tick_complete(tick_no);
+        #[cfg(target_os = "trueos")]
+        if tick_no == 1 {
+            eprintln!("velosrv: startup stage=first-tick-complete");
+        }
 
         for event in events {
             match event {
@@ -315,7 +347,11 @@ fn server_loop(
         }
 
         // Clean up the server after a tick.
+        #[cfg(target_os = "trueos")]
+        execution_heartbeat::phase(execution_heartbeat::CLEANUP);
         server.cleanup();
+        #[cfg(target_os = "trueos")]
+        execution_heartbeat::phase(execution_heartbeat::COMMANDS);
 
         if tick_no.rem_euclid(1000) == 0 {
             trace!(?tick_no, "keepalive")
@@ -411,6 +447,8 @@ fn server_loop(
 
         drop(guard);
         // Wait for the next tick.
+        #[cfg(target_os = "trueos")]
+        execution_heartbeat::phase(execution_heartbeat::WAIT);
         clock.tick();
         #[cfg(feature = "tracy")]
         common_base::tracy_client::frame_mark();

@@ -863,6 +863,9 @@ impl State {
             };
         }
 
+        #[cfg(target_os = "trueos")]
+        let trace_first_tick = self.ecs.read_resource::<ProgramTime>().0 == 0.0;
+
         // Change the time accordingly.
         let time_scale = self.ecs.read_resource::<TimeScale>().0;
         self.ecs.write_resource::<TimeOfDay>().0 +=
@@ -878,7 +881,15 @@ impl State {
 
         section_span!(guard, "run systems");
         // This dispatches all the systems in parallel.
+        #[cfg(target_os = "trueos")]
+        if trace_first_tick {
+            eprintln!("velosrv: first-tick stage=ecs-dispatch-enter");
+        }
         self.dispatcher.dispatch(&self.ecs);
+        #[cfg(target_os = "trueos")]
+        if trace_first_tick {
+            eprintln!("velosrv: first-tick stage=ecs-dispatch-complete");
+        }
         drop(guard);
 
         self.maintain_ecs();

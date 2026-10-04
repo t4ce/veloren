@@ -1794,7 +1794,31 @@ impl WorldSim {
                 calendar,
             ));
             #[cfg(any(target_os = "trueos", feature = "cooperative-worldgen"))]
-            let samples = crate::generation::collect_ordered(0..self.map_size_lg().chunks_len(), sample);
+            let samples = {
+                let total = self.map_size_lg().chunks_len();
+                let mut samples = Vec::new();
+                #[cfg(target_os = "trueos")]
+                eprintln!("velosrv: map-data stage=samples-reserve-start bytes={} sample_bytes={}",
+                    total * std::mem::size_of::<Option<crate::column::ColumnSample>>(),
+                    std::mem::size_of::<Option<crate::column::ColumnSample>>());
+                if let Err(error) = samples.try_reserve_exact(total) {
+                    eprintln!("velosrv: map-data stage=samples-reserve-failed chunks={total} error={error}");
+                    panic!("Unable to reserve world map samples: {error}");
+                }
+                #[cfg(target_os = "trueos")]
+                eprintln!("velosrv: map-data stage=samples-reserve-complete");
+                let mut progress = crate::generation::ScanProgress::new("samples-progress", total);
+                crate::generation::collect_ordered_into(0..total, |posi| {
+                    #[cfg(target_os = "trueos")]
+                    if posi == 0 {
+                        eprintln!("velosrv: map-data stage=first-sample-enter chunk=0");
+                    }
+                    let result = sample(posi);
+                    progress.completed(posi + 1);
+                    result
+                }, &mut samples);
+                samples
+            };
             #[cfg(not(any(target_os = "trueos", feature = "cooperative-worldgen")))]
             let samples = (0..self.map_size_lg().chunks_len())
                 .into_par_iter()
@@ -1833,6 +1857,8 @@ impl WorldSim {
         #[cfg(target_os = "trueos")]
         eprintln!("velosrv: map-data stage=pixels-start");
         let mut budget = crate::generation::WorkBudget::new();
+        let mut progress = crate::generation::ScanProgress::new("pixels-progress", self.map_size_lg().chunks_len());
+        let mut pixels_complete = 0;
         let mut v = vec![0u32; self.map_size_lg().chunks_len()];
         let mut alts = vec![0u32; self.map_size_lg().chunks_len()];
         // TODO: Parallelize again.
@@ -1856,6 +1882,8 @@ impl WorldSim {
                 v[posi] = u32::from_le_bytes([r, g, b, a]);
                 alts[posi] = (((alt.clamp(0.0, 1.0) * 8191.0) as u32) & 0x1FFF) << 3;
                 budget.checkpoint();
+                pixels_complete += 1;
+                progress.completed(pixels_complete);
             },
         );
         #[cfg(target_os = "trueos")]

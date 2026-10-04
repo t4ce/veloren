@@ -435,8 +435,15 @@ pub fn get_horizon_map<F: Float + Sync, A: Send, H: Send>(
             (to_angle(a), to_height(h))
         };
         #[cfg(any(target_os = "trueos", feature = "cooperative-worldgen"))]
-        let (angles, heights) = crate::generation::collect_ordered(0..map_len, sample)
-            .into_iter().unzip();
+        let (angles, heights) = {
+            let stage = if dx < 0 { "horizons-west-progress" } else { "horizons-east-progress" };
+            let mut progress = crate::generation::ScanProgress::new(stage, map_len);
+            crate::generation::collect_ordered(0..map_len, |posi| {
+                let result = sample(posi);
+                progress.completed(posi + 1);
+                result
+            }).into_iter().unzip()
+        };
         #[cfg(not(any(target_os = "trueos", feature = "cooperative-worldgen")))]
         let (angles, heights) = {
             let mut angles = Vec::with_capacity(map_len);

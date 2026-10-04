@@ -41,10 +41,57 @@ pub(crate) fn for_each_site<T>(sites: impl IntoIterator<Item = T>, mut update: i
 /// parallel completion barrier during cooperative bootstrap.
 #[cfg(any(target_os = "trueos", feature = "cooperative-worldgen"))]
 pub(crate) fn collect_ordered<T, U>(items: impl IntoIterator<Item = T>, mut sample: impl FnMut(T) -> U) -> Vec<U> {
+    let items = items.into_iter();
+    let mut output = Vec::with_capacity(items.size_hint().0);
+    collect_ordered_into(items, &mut sample, &mut output);
+    output
+}
+
+/// Allow the caller to reserve and diagnose storage separately from sampling.
+#[cfg(any(target_os = "trueos", feature = "cooperative-worldgen"))]
+pub(crate) fn collect_ordered_into<T, U>(items: impl IntoIterator<Item = T>, mut sample: impl FnMut(T) -> U, output: &mut Vec<U>) {
     let mut budget = WorkBudget::new();
-    items.into_iter().map(|item| {
+    for item in items {
         let value = sample(item);
+        output.push(value);
         budget.checkpoint();
-        value
-    }).collect()
+    }
+}
+
+/// Report completed work independently of the quiet scheduling budget.
+pub(crate) struct ScanProgress {
+    #[cfg(target_os = "trueos")]
+    stage: &'static str,
+    #[cfg(target_os = "trueos")]
+    total: usize,
+    #[cfg(target_os = "trueos")]
+    started: std::time::Instant,
+    #[cfg(target_os = "trueos")]
+    last_report: std::time::Instant,
+}
+
+impl ScanProgress {
+    pub(crate) fn new(_stage: &'static str, _total: usize) -> Self {
+        Self {
+            #[cfg(target_os = "trueos")]
+            stage: _stage,
+            #[cfg(target_os = "trueos")]
+            total: _total,
+            #[cfg(target_os = "trueos")]
+            started: std::time::Instant::now(),
+            #[cfg(target_os = "trueos")]
+            last_report: std::time::Instant::now(),
+        }
+    }
+
+    pub(crate) fn completed(&mut self, _completed: usize) {
+        #[cfg(target_os = "trueos")]
+        if _completed == 1 || _completed == self.total
+            || self.last_report.elapsed() >= std::time::Duration::from_secs(2)
+        {
+            eprintln!("velosrv: map-data stage={} completed={}/{} elapsed_ms={}",
+                self.stage, _completed, self.total, self.started.elapsed().as_millis());
+            self.last_report = std::time::Instant::now();
+        }
+    }
 }

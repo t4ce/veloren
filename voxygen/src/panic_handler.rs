@@ -67,9 +67,9 @@ pub fn set_panic_hook(log_filename: String, logs_dir: PathBuf) {
         );
 
         error!(
-            "VOXYGEN HAS PANICKED\n\n{}\n\nBacktrace:\n{:?}",
+            "VOXYGEN HAS PANICKED\n\n{}\n\nBacktrace:\n{}",
             dialog_message,
-            backtrace::Backtrace::new(),
+            std::backtrace::Backtrace::force_capture(),
         );
 
         #[cfg(feature = "native-dialog")]

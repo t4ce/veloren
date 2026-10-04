@@ -713,9 +713,9 @@ impl AudioFrontend {
             }
         } else {
             warn!(
-                "Missing sfx trigger config for sfx event: {:?}; {:?}",
+                "Missing sfx trigger config for sfx event: {:?}; Backtrace:\n{}",
                 trigger_item,
-                backtrace::Backtrace::new(),
+                std::backtrace::Backtrace::force_capture(),
             );
             None
         }

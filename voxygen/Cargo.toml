@@ -100,7 +100,6 @@ server = { package = "veloren-server", path = "../server", optional = true, defa
 clap = { workspace = true }
 
 # Utility
-backtrace = "0.3.40"
 chrono = { workspace = true }
 chumsky = { version = "0.13", default-features = false, features = ["std"] }
 crossbeam-utils = { workspace = true }

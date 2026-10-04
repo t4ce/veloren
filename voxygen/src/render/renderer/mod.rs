@@ -270,6 +270,7 @@ impl Renderer {
                 })
                 .ok_or(RenderError::CouldNotFindAdapter)?,
             Some(_) | None => {
+                drop(adapters);
                 runtime.block_on(instance.request_adapter(&wgpu::RequestAdapterOptionsBase {
                     power_preference: wgpu::PowerPreference::HighPerformance,
                     compatible_surface: Some(&surface),

@@ -8402,7 +8402,6 @@ dependencies = [
 name = "veloren-voxygen"
 version = "0.18.0"
 dependencies = [
- "backtrace",
  "bitflags 2.13.0",
  "bytemuck",
  "chrono",

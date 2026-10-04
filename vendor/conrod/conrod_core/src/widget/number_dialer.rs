@@ -11,7 +11,7 @@ use {
     Scalar,
     Widget,
 };
-use num::{Float, NumCast};
+use num_traits::{Float, NumCast};
 use std::cmp::Ordering;
 use std::iter::repeat;
 use text;

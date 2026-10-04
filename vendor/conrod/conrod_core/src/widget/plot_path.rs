@@ -2,7 +2,7 @@
 
 use {Color, Colorable, Point, Positionable, Scalar, Sizeable, Theme, Widget};
 use graph;
-use num;
+use num_traits;
 use utils;
 use widget;
 
@@ -69,8 +69,8 @@ impl<X, Y, F> PlotPath<X, Y, F> {
 
 
 impl<X, Y, F> Widget for PlotPath<X, Y, F>
-    where X: num::NumCast + Clone,
-          Y: num::NumCast + Clone,
+    where X: num_traits::NumCast + Clone,
+          Y: num_traits::NumCast + Clone,
           F: FnMut(X) -> Y,
 {
     type State = State;

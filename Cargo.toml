@@ -238,6 +238,9 @@ vek = { version = "0.17.0", features = ["serde", "mint"] }
 quinn = { version = "0.11" }
 
 [patch.crates-io]
+atomicwrites = { path = "vendor/atomicwrites-0.4.4" }
+tynm = { path = "vendor/tynm-0.1.10" }
+wavefront = { path = "vendor/wavefront-0.2.3" }
 lz-fear = { path = "vendor/lz-fear-0.2.0" }
 png = { path = "vendor/png-0.18.1" }
 backtrace = { path = "vendor/backtrace-0.3.76" }

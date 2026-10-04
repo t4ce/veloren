@@ -3,7 +3,7 @@
 //!
 
 
-use num::{Float, NumCast, PrimInt, ToPrimitive};
+use num_traits::{Float, NumCast, PrimInt, ToPrimitive};
 use position::{Point, Range, Rect};
 use std::borrow::Cow;
 use std::iter::{Chain, once, Once};

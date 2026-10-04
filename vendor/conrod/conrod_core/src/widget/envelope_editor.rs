@@ -1,7 +1,7 @@
 //! The `EnvelopeEditor` widget and related items.
 
 use {Color, Colorable, Borderable, FontSize, Labelable, Positionable, Sizeable, Widget};
-use num::Float;
+use num_traits::Float;
 use position::{Direction, Edge, Point, Rect, Scalar};
 use std;
 use text;

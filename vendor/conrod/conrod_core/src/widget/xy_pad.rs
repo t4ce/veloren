@@ -10,7 +10,7 @@ use {
     Scalar,
     Widget,
 };
-use num::Float;
+use num_traits::Float;
 use text;
 use utils::{map_range, val_to_string};
 use widget;

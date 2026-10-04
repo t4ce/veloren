@@ -11,7 +11,7 @@
 #[macro_use] extern crate conrod_derive;
 extern crate daggy;
 extern crate fnv;
-extern crate num;
+extern crate num_traits;
 extern crate input as piston_input;
 extern crate rusttype;
 /// In-process text clipboard shared by game UI systems.

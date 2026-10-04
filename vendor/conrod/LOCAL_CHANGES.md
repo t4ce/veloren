@@ -10,3 +10,6 @@ The copypasta dependency is removed. TextEdit uses the public
 Veloren's Iced UI uses the same buffer. There is no OS clipboard integration:
 text can be copied between game fields, but not between the game and other apps.
 Clipboard contents are discarded when the game exits.
+
+Numeric widgets depend directly on `num-traits 0.2` rather than the `num 0.2`
+umbrella crate. Only trait import paths change; widget calculations are unchanged.

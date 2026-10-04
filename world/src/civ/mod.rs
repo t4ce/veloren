@@ -652,10 +652,17 @@ impl Civs {
                 }
             });
             sim_site.site_tmp = Some(site);
+            #[cfg(target_os = "trueos")]
+            eprintln!("velosrv: sites stage=generator-complete site={}", cnt);
             let site_ref = &index.sites[site];
 
             let radius_chunks =
                 (site_ref.radius() / TerrainChunkSize::RECT_SIZE.x as f32).ceil() as usize;
+            #[cfg(target_os = "trueos")]
+            eprintln!(
+                "velosrv: sites stage=terrain-register site={} radius_chunks={}",
+                cnt, radius_chunks
+            );
             for pos in Spiral2d::new()
                 .map(|offs| sim_site.center + offs)
                 .take((radius_chunks * 2).pow(2))

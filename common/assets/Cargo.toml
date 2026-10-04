@@ -26,6 +26,9 @@ hashbrown = { workspace = true }
 # asset tweak
 serde = { workspace = true, optional = true }
 
+[target.'cfg(target_os = "trueos")'.dependencies]
+trueos = { path = "../../../TRUEOS-Blueprints/api", default-features = false }
+
 [dev-dependencies]
 walkdir = "2.3.2"
 serde = { workspace = true }

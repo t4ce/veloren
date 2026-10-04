@@ -1,10 +1,18 @@
-use std::{fs, io};
+use std::{io, path::Path};
 
+#[cfg(target_os = "trueos")]
+#[path = "trueos_fs.rs"]
+mod native;
+#[cfg(not(target_os = "trueos"))]
 use assets_manager::{
     BoxedError,
     hot_reloading::{EventSender, FsWatcherBuilder},
-    source::{DirEntry, FileContent, FileSystem as RawFs, Source},
+    source::FileSystem as RawFs,
 };
+#[cfg(target_os = "trueos")]
+use native::FileSystem as RawFs;
+
+use assets_manager::source::{DirEntry, FileContent, Source};
 use hashbrown::HashSet;
 
 /// Loads assets from the default path or `VELOREN_ASSETS_OVERRIDE` env if it is
@@ -30,15 +38,20 @@ impl FileSystem {
                 .ok()
         });
 
-        let canary = fs::read_to_string(super::ASSETS_PATH.join("common").join("canary.canary"))
-            .map_err(|e| {
+        let is_canary = {
+            let canary = default.read("common.canary", "canary").map_err(|e| {
                 io::Error::new(
                     e.kind(),
                     format!("failed to load canary asset in {}: {}", path.display(), e),
                 )
             })?;
 
-        if !canary.starts_with("VELOREN_CANARY_MAGIC") {
+            let canary = std::str::from_utf8(canary.as_ref())
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+            canary.starts_with("VELOREN_CANARY_MAGIC")
+        };
+
+        if !is_canary {
             panic!("Canary asset `canary.canary` was present but did not contain the expected data. This *heavily* implies that you've not correctly set up Git LFS (Large File Storage). Visit `https://book.veloren.net/contributors/development-tools.html#git-lfs` for more information about setting up Git LFS.");
         }
 
@@ -145,6 +158,7 @@ impl Source for FileSystem {
             || self.default.exists(entry)
     }
 
+    #[cfg(not(target_os = "trueos"))]
     fn configure_hot_reloading(&self, events: EventSender) -> Result<(), BoxedError> {
         let mut builder = FsWatcherBuilder::new()?;
 
@@ -156,6 +170,26 @@ impl Source for FileSystem {
         builder.build(events);
         Ok(())
     }
+}
+
+pub(super) fn is_dir(path: &Path) -> bool {
+    #[cfg(target_os = "trueos")]
+    return native::is_dir(path);
+    #[cfg(not(target_os = "trueos"))]
+    path.is_dir()
+}
+
+pub(super) fn list_children(path: &Path) -> io::Result<Vec<(std::path::PathBuf, bool)>> {
+    #[cfg(target_os = "trueos")]
+    return native::list_children(path);
+    #[cfg(not(target_os = "trueos"))]
+    std::fs::read_dir(path)?
+        .map(|entry| {
+            let path = entry?.path();
+            let is_dir = path.is_dir();
+            Ok((path, is_dir))
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -421,7 +455,7 @@ mod tests {
 #[cfg(test)]
 mod integration {
     use super::{tests::*, *};
-    use assets_manager::{Asset, AssetCache, FileAsset, SharedString};
+    use assets_manager::{Asset, AssetCache, BoxedError, FileAsset, SharedString};
     use hashbrown::HashSet;
     use serde::Deserialize;
     use std::borrow::Cow;

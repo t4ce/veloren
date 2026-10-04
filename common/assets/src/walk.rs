@@ -53,10 +53,8 @@ impl Walk {
 /// Helper function to [Walk::generate()], prefer using it instead.
 pub fn walk_tree(dir: &Path, root: &Path) -> io::Result<Vec<Walk>> {
     let mut buff = Vec::new();
-    for entry in std::fs::read_dir(dir)? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.is_dir() {
+    for (path, is_dir) in super::fs::list_children(dir)? {
+        if is_dir {
             buff.push(Walk::Dir {
                 path: path
                     .strip_prefix(root)

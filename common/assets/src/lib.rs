@@ -352,8 +352,7 @@ lazy_static! {
         #[cfg(target_os = "trueos")]
         {
             paths.push(PathBuf::from("assets"));
-            // Keep the shared alias absolute: assets_manager canonicalizes
-            // its root against the app's cwd before opening it.
+            // Use the explicit shared alias rather than an app-local cwd path.
             paths.push(
                 std::env::var_os("TRUEOS_APP_COMMON")
                     .map(PathBuf::from)
@@ -363,18 +362,20 @@ lazy_static! {
         }
 
         // 2. Executable path
+        #[cfg(not(target_os = "trueos"))]
         if let Ok(mut path) = std::env::current_exe() {
             path.pop();
             paths.push(path);
         }
 
         // 3. Root of the repository
+        #[cfg(not(target_os = "trueos"))]
         if let Some(path) = find_root() {
             paths.push(path);
         }
 
         // 4. System paths
-        #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+        #[cfg(all(unix, not(target_os = "trueos"), not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
         {
             if let Ok(result) = std::env::var("XDG_DATA_HOME") {
                 paths.push(format!("{}/veloren/", result).into());
@@ -400,7 +401,7 @@ lazy_static! {
                 path = path.join("assets");
             }
 
-            if path.is_dir() {
+            if fs::is_dir(&path) {
                 tracing::info!("Assets found path={}", path.display());
                 return path;
             }

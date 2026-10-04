@@ -144,9 +144,11 @@ impl State {
     }
 
     /// Share the server's Tokio workers with ECS and background CPU tasks.
+    /// The server owns the runtime; jobs must not keep it alive after server
+    /// cleanup, since the main thread must join every worker during shutdown.
     pub fn pools_on(runtime: Arc<tokio::runtime::Runtime>) -> Pools {
         ThreadPool::set_shared_runtime(&runtime);
-        Arc::new(ThreadPool::from_runtime(runtime))
+        Arc::new(ThreadPool::from_handle(runtime.handle().clone()))
     }
 
     /// Create a new `State` in client mode.

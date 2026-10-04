@@ -138,7 +138,7 @@ impl World {
     ) -> (Self, IndexOwned) {
         prof_span!("World::generate");
         #[cfg(target_os = "trueos")]
-        eprintln!("velosrv: worldgen stage=worker-submit");
+        eprintln!("velosrv: worldgen stage=context-enter");
         // NOTE: Generating index first in order to quickly fail if the color manifest
         // is broken.
         threadpool.install(|| {

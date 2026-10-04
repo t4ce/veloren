@@ -4,32 +4,18 @@
 use iced::{Event, Point, keyboard, mouse, touch, window};
 use winit::{event::WindowEvent, keyboard::NamedKey};
 
-/// A buffer for short-term storage and transfer within and between
-/// applications.
-pub struct Clipboard {
-    connection: Option<window_clipboard::Clipboard>,
-}
+/// Access to the game's shared in-process text clipboard.
+pub struct Clipboard;
 
 impl Clipboard {
-    /// Creates a new [`Clipboard`] for the given window.
-    pub fn connect(window: &winit::window::Window) -> Clipboard {
-        #[expect(unsafe_code)]
-        let connection = unsafe { window_clipboard::Clipboard::connect(window) }.ok();
+    /// Creates a handle to the internal clipboard.
+    pub fn connect(_window: &winit::window::Window) -> Clipboard { Clipboard }
 
-        Clipboard { connection }
-    }
+    /// Reads the current clipboard text.
+    pub fn read(&self) -> Option<String> { Some(conrod_core::clipboard::read()) }
 
-    /// Reads the current content of the [`Clipboard`] as text.
-    pub fn read(&self) -> Option<String> { self.connection.as_ref()?.read().ok() }
-
-    /// Writes the given text contents to the [`Clipboard`].
-    pub fn write(&mut self, contents: String) {
-        if let Some(clipboard) = &mut self.connection
-            && let Err(error) = clipboard.write(contents)
-        {
-            tracing::warn!("error writing to clipboard: {}", error)
-        }
-    }
+    /// Replaces the clipboard text.
+    pub fn write(&mut self, contents: String) { conrod_core::clipboard::write(contents); }
 }
 
 impl iced::Clipboard for Clipboard {

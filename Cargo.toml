@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-exclude = ["vendor/specs", "vendor/shred", "vendor/hibitset", "vendor/hashbrown", "vendor/indexmap"]
+exclude = ["vendor/conrod/conrod_core", "vendor/conrod/conrod_derive", "vendor/specs", "vendor/shred", "vendor/hibitset", "vendor/hashbrown", "vendor/indexmap"]
 members = [
     "client",
     "client/i18n",
@@ -238,6 +238,9 @@ vek = { version = "0.17.0", features = ["serde", "mint"] }
 quinn = { version = "0.11" }
 
 [patch.crates-io]
+sha2 = { path = "vendor/sha2-0.10.9" }
+# Retain the SHA 0.10 APIs while sharing cpufeatures 0.3.1 with SHA 0.11.
+sha1 = { path = "vendor/sha1-0.10.6" }
 # until next specs release
 specs = { path = "vendor/specs" }
 shred = { path = "vendor/shred" }

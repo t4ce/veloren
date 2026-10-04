@@ -1,4 +1,4 @@
-#![no_main]
+#![cfg_attr(target_os = "trueos", no_main)]
 #![deny(unsafe_code)]
 #![deny(clippy::clone_on_ref_ptr)]
 
@@ -480,6 +480,7 @@ fn server_loop(
     Ok(())
 }
 
+#[cfg(target_os = "trueos")]
 #[allow(unsafe_code)]
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {

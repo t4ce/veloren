@@ -248,6 +248,8 @@ lz-fear = { path = "vendor/lz-fear-0.2.0" }
 png = { path = "vendor/png-0.18.1" }
 backtrace = { path = "vendor/backtrace-0.3.76" }
 hashbrown_015 = { package = "hashbrown", path = "vendor/hashbrown-0.15.5" }
+# Keep hashlink compatible with the aligned foldhash 0.2 default hasher.
+hashlink = { path = "vendor/hashlink-0.10.0" }
 rust-argon2 = { path = "vendor/rust-argon2-2.1.0" }
 sha2 = { path = "vendor/sha2-0.10.9" }
 # Retain the SHA 0.10 APIs while sharing cpufeatures 0.3.1 with SHA 0.11.

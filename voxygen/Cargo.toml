@@ -72,7 +72,7 @@ shaderc = "0.10"
 
 # Ui
 conrod_core = { path = "../vendor/conrod/conrod_core" }
-euc = "0.5.3"
+euc = { path = "../vendor/euc" }
 # We should probably migrate to a more recent version at some point, but this is significant amount of work.
 # Note: this does not depend on the version of `winit` anymore, all dependent code was moved into Voxygen
 iced = { package = "iced_native", git = "https://github.com/Imberflur/iced", tag = "veloren-winit-0.28" }

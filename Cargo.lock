@@ -253,15 +253,6 @@ dependencies = [
 
 [[package]]
 name = "approx"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f2a05fd1bd10b2527e20a2cd32d8873d115b8b39fe219ee25f42a8aca6ba278"
-dependencies = [
- "num-traits",
-]
-
-[[package]]
-name = "approx"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cab112f0a86d568ea0e627cc1d6be74a1e9cd55214684db5561995f6dad897c6"
@@ -2251,10 +2242,8 @@ checksum = "dea2df4cf52843e0452895c455a1a2cfbb842a1e7329671acf418fdc53ed4c59"
 [[package]]
 name = "euc"
 version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0947d06646d28a4ac2862ac5eadc1062704d61ee398b3baba8b4a21e2f1ef5ed"
 dependencies = [
- "vek 0.14.1",
+ "vek",
 ]
 
 [[package]]
@@ -3695,7 +3684,7 @@ checksum = "a00109accc170f0bdb141fed3e393c565b6f5e072365c3bd58f5b062591560a3"
 dependencies = [
  "proc-macro2 1.0.106",
  "quote 1.0.45",
- "rustc_version 0.4.1",
+ "rustc_version",
  "simd_cesu8",
  "syn 2.0.117",
 ]
@@ -6120,20 +6109,11 @@ checksum = "94300abf3f1ae2e2b8ffb7b58043de3d399c73fa6f4b73826402a5c457614dbe"
 
 [[package]]
 name = "rustc_version"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
-dependencies = [
- "semver 0.9.0",
-]
-
-[[package]]
-name = "rustc_version"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cfcb3a22ef46e85b45de6ee7e79d063319ebb6594faafcf1c225ea92ab6e9b92"
 dependencies = [
- "semver 1.0.28",
+ "semver",
 ]
 
 [[package]]
@@ -6454,15 +6434,6 @@ checksum = "b12e76d157a900eb52e81bc6e9f3069344290341720e9178cde2407113ac8d89"
 
 [[package]]
 name = "semver"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403"
-dependencies = [
- "semver-parser",
-]
-
-[[package]]
-name = "semver"
 version = "1.0.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a7852d02fc848982e0c167ef163aaff9cd91dc640ba85e263cb1ce46fae51cd"
@@ -6470,12 +6441,6 @@ dependencies = [
  "serde",
  "serde_core",
 ]
-
-[[package]]
-name = "semver-parser"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
 name = "send_wrapper"
@@ -6746,7 +6711,7 @@ version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94f90157bb87cddf702797c5dadfa0be7d266cdf49e22da2fcaa32eff75b2c33"
 dependencies = [
- "rustc_version 0.4.1",
+ "rustc_version",
  "simdutf8",
 ]
 
@@ -7719,7 +7684,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c11fcf82651ce9a4550c82beb88a38951fdde004917817eba244359720d74c06"
 dependencies = [
  "num-traits",
- "vek 0.17.2",
+ "vek",
 ]
 
 [[package]]
@@ -7965,20 +7930,6 @@ checksum = "f1bddf1187be692e79c5ffeab891132dfb0f236ed36a43c7ed39f1165ee20191"
 
 [[package]]
 name = "vek"
-version = "0.14.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04d6626f32b226e2c5b35f23ea87eaf683f3d93eaeb16b4084d0683479616f0f"
-dependencies = [
- "approx 0.4.0",
- "num-integer",
- "num-traits",
- "rustc_version 0.2.3",
- "serde",
- "static_assertions",
-]
-
-[[package]]
-name = "vek"
 version = "0.17.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "25215c4675beead435b254fc510932ff7f519cbc585b1b9fe2539ee9f20ca331"
@@ -7987,7 +7938,7 @@ dependencies = [
  "mint",
  "num-integer",
  "num-traits",
- "rustc_version 0.4.1",
+ "rustc_version",
  "serde",
 ]
 
@@ -8011,7 +7962,7 @@ dependencies = [
  "specs",
  "tokio",
  "tracing",
- "vek 0.17.2",
+ "vek",
  "veloren-client-i18n",
  "veloren-common",
  "veloren-common-base",
@@ -8087,7 +8038,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
- "vek 0.17.2",
+ "vek",
  "veloren-common-assets",
  "veloren-common-base",
  "veloren-common-i18n",
@@ -8175,7 +8126,7 @@ dependencies = [
  "specs",
  "sum_type",
  "tracing",
- "vek 0.17.2",
+ "vek",
  "veloren-common",
 ]
 
@@ -8198,7 +8149,7 @@ dependencies = [
  "tokio",
  "toml 1.1.2+spec-1.1.0",
  "tracing",
- "vek 0.17.2",
+ "vek",
  "veloren-common",
  "veloren-common-assets",
  "veloren-common-base",
@@ -8218,7 +8169,7 @@ dependencies = [
  "rand 0.10.1",
  "specs",
  "tracing",
- "vek 0.17.2",
+ "vek",
  "veloren-common",
  "veloren-common-base",
  "veloren-common-ecs",
@@ -8306,7 +8257,7 @@ dependencies = [
  "specs",
  "take-once",
  "tracing",
- "vek 0.17.2",
+ "vek",
  "veloren-common",
  "veloren-tokio-parallel",
  "veloren-world",
@@ -8355,7 +8306,7 @@ dependencies = [
  "strum",
  "tokio",
  "tracing",
- "vek 0.17.2",
+ "vek",
  "veloren-common",
  "veloren-common-base",
  "veloren-common-ecs",
@@ -8379,7 +8330,7 @@ dependencies = [
  "rand 0.10.1",
  "specs",
  "tracing",
- "vek 0.17.2",
+ "vek",
  "veloren-common",
  "veloren-common-base",
  "veloren-common-dynlib",
@@ -8484,7 +8435,7 @@ dependencies = [
  "tokio",
  "tracing",
  "treeculler",
- "vek 0.17.2",
+ "vek",
  "veloren-client",
  "veloren-client-i18n",
  "veloren-common",
@@ -8514,7 +8465,7 @@ dependencies = [
  "bytemuck",
  "inline_tweak",
  "lazy_static",
- "vek 0.17.2",
+ "vek",
  "veloren-common",
  "veloren-common-dynlib",
  "veloren-common-state",
@@ -8540,7 +8491,7 @@ version = "0.18.0"
 dependencies = [
  "rand 0.10.1",
  "tracing",
- "vek 0.17.2",
+ "vek",
  "veloren-client-i18n",
  "veloren-common",
  "veloren-common-net",
@@ -8588,7 +8539,7 @@ dependencies = [
  "tiny-skia 0.12.0",
  "tracing",
  "tracing-subscriber",
- "vek 0.17.2",
+ "vek",
  "veloren-common",
  "veloren-common-base",
  "veloren-common-dynlib",
@@ -8799,7 +8750,7 @@ dependencies = [
  "bitflags 2.13.0",
  "hashbrown 0.15.5",
  "indexmap 2.14.2",
- "semver 1.0.28",
+ "semver",
 ]
 
 [[package]]
@@ -8811,7 +8762,7 @@ dependencies = [
  "bitflags 2.13.0",
  "hashbrown 0.17.1",
  "indexmap 2.14.2",
- "semver 1.0.28",
+ "semver",
  "serde",
 ]
 
@@ -8823,7 +8774,7 @@ checksum = "d3eb099dcadcde5be9eef55e3a337128efd4e44b4c93122487e4d2e4e1c6627c"
 dependencies = [
  "bitflags 2.13.0",
  "indexmap 2.14.2",
- "semver 1.0.28",
+ "semver",
 ]
 
 [[package]]
@@ -8864,7 +8815,7 @@ dependencies = [
  "pulley-interpreter",
  "rayon",
  "rustix 1.1.4",
- "semver 1.0.28",
+ "semver",
  "serde",
  "serde_derive",
  "serde_json",
@@ -8908,7 +8859,7 @@ dependencies = [
  "object 0.39.1",
  "postcard",
  "rustc-demangle",
- "semver 1.0.28",
+ "semver",
  "serde",
  "serde_derive",
  "sha2 0.10.9",
@@ -10486,7 +10437,7 @@ dependencies = [
  "id-arena",
  "indexmap 2.14.2",
  "log",
- "semver 1.0.28",
+ "semver",
  "serde",
  "serde_derive",
  "serde_json",
@@ -10505,7 +10456,7 @@ dependencies = [
  "id-arena",
  "indexmap 2.14.2",
  "log",
- "semver 1.0.28",
+ "semver",
  "serde",
  "serde_derive",
  "serde_json",

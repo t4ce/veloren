@@ -1,6 +1,31 @@
 use regex::Regex;
 use std::process::Command;
 
+// Cargo's default package-file tracking excludes Git metadata. Separate target
+// caches can therefore keep different version strings after the same commit.
+fn watch_git_version() {
+    println!("cargo::rerun-if-changed=build.rs");
+    println!("cargo::rerun-if-env-changed=VELOREN_GIT_VERSION");
+    for name in ["HEAD", "refs/heads", "refs/tags", "packed-refs"] {
+        let Ok(output) = Command::new("git")
+            .args(["rev-parse", "--path-format=absolute", "--git-path", name])
+            .output()
+        else {
+            continue;
+        };
+        if output.status.success() {
+            let path = String::from_utf8_lossy(&output.stdout);
+            let path = path.trim();
+            // Missing packed-refs is normal; watching an absent path would
+            // make Cargo rerun the script on every build. Packing loose refs
+            // changes refs/heads or refs/tags, which are watched above.
+            if std::path::Path::new(path).exists() {
+                println!("cargo::rerun-if-changed={path}");
+            }
+        }
+    }
+}
+
 // Get the current githash+timestamp
 // Note: It will compare commits. As long as the commits do not diverge from the
 // server no version change will be detected.
@@ -63,6 +88,7 @@ fn get_git_tag() -> Option<String> {
 }
 
 fn main() {
+    watch_git_version();
     // If this env var exists, it'll be used instead
     if option_env!("VELOREN_GIT_VERSION").is_none() {
         let hash_timestamp = match get_git_hash_timestamp() {

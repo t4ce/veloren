@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::client::Client;
+use crate::{IndexOwned, World, client::Client};
 use common::{
     comp::{CharacterState, Content, PhysicsState, Player, Pos, Vel, Waypoint, WaypointArea},
     resources::Time,
@@ -8,7 +8,6 @@ use common::{
 use common_ecs::{Job, Origin, Phase, System};
 use common_net::msg::{Notification, ServerGeneral};
 use specs::{Entities, Join, LendJoin, Read, ReadExpect, ReadStorage, WriteStorage};
-use world::{IndexOwned, World};
 
 /// Cooldown time (in seconds) for "Waypoint Saved" notifications
 const NOTIFY_TIME: f64 = 10.0;
@@ -93,5 +92,33 @@ impl<'a> System<'a> for Sys {
                 }
             }
         }
+    }
+}
+
+#[cfg(all(test, not(feature = "worldgen")))]
+mod tests {
+    use super::*;
+    use common_ecs::SysMetrics;
+    use specs::{RunNow, WorldExt};
+
+    #[test]
+    fn waypoint_runs_with_the_servers_test_world_resources() {
+        let mut ecs = specs::World::new();
+        let (world, index) = World::generate(0);
+        ecs.insert(Arc::new(world));
+        ecs.insert(index);
+        ecs.insert(SysMetrics::default());
+
+        let mut job = Job::<Sys>::default();
+        RunNow::setup(&mut job, &mut ecs);
+        job.run_now(&ecs);
+
+        assert!(
+            ecs.read_resource::<SysMetrics>()
+                .stats
+                .lock()
+                .unwrap()
+                .contains_key("waypoint")
+        );
     }
 }

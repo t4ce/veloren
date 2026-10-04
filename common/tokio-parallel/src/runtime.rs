@@ -25,7 +25,25 @@ mod implementation {
     /// worker pool.
     pub struct ThreadPool {
         handle: tokio::runtime::Handle,
-        _owner: Option<Arc<Runtime>>,
+        _owner: Option<Arc<RuntimeOwner>>,
+    }
+
+    // User closures may retain a pool, even though our task execution context
+    // only retains a Handle. The last owning closure can finish on a worker of
+    // this very runtime (for example background renderer pipeline creation).
+    // Share this guard across pool clones so concurrent drops have one shutdown
+    // owner, rather than racing separate Arc::try_unwrap calls.
+    struct RuntimeOwner(Option<Arc<Runtime>>);
+    impl Drop for RuntimeOwner {
+        fn drop(&mut self) {
+            if let Some(runtime) = self.0.take().and_then(Arc::into_inner) {
+                if tokio::runtime::Handle::try_current().is_ok() {
+                    runtime.shutdown_background();
+                } else {
+                    drop(runtime);
+                }
+            }
+        }
     }
     impl std::fmt::Debug for ThreadPool {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -54,7 +72,7 @@ mod implementation {
         pub fn from_runtime(runtime: Arc<Runtime>) -> Self {
             Self {
                 handle: runtime.handle().clone(),
-                _owner: Some(runtime),
+                _owner: Some(Arc::new(RuntimeOwner(Some(runtime)))),
             }
         }
 

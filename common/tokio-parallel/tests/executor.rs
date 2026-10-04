@@ -7,6 +7,31 @@ use std::{
     time::Duration,
 };
 use veloren_tokio_parallel::{ThreadPool, join, prelude::*, scope};
+#[test]
+fn background_task_can_release_last_standalone_runtime_owner() {
+    let pool = Arc::new(
+        veloren_tokio_parallel::ThreadPoolBuilder::new()
+            .num_threads(1)
+            .build()
+            .unwrap(),
+    );
+    let last_owner = Arc::clone(&pool);
+    let (release, wait) = std::sync::mpsc::channel();
+    let (completed, result) = std::sync::mpsc::channel();
+    pool.spawn(move || {
+        wait.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert!(tokio::runtime::Handle::try_current().is_ok());
+        let dropped = catch_unwind(AssertUnwindSafe(|| drop(last_owner)));
+        completed.send(dropped.is_ok()).unwrap();
+    });
+    drop(pool);
+    release.send(()).unwrap();
+    assert!(
+        result.recv_timeout(Duration::from_secs(5)).unwrap(),
+        "dropping the pipeline task's last runtime owner panicked"
+    );
+}
+
 fn executor(workers: usize) -> (Arc<tokio::runtime::Runtime>, Arc<ThreadPool>) {
     let runtime = Arc::new(
         tokio::runtime::Builder::new_multi_thread()

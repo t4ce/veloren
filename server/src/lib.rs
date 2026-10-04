@@ -865,20 +865,6 @@ impl Server {
 
         let before_state_tick = Instant::now();
 
-        fn on_block_update(ecs: &specs::World, changes: Vec<BlockDiff>) {
-            // When a resource block updates, inform rtsim
-            if changes
-                .iter()
-                .any(|c| c.old.get_rtsim_resource() != c.new.get_rtsim_resource())
-            {
-                ecs.write_resource::<rtsim::RtSim>().hook_block_update(
-                    &ecs.read_resource::<Arc<world::World>>(),
-                    ecs.read_resource::<world::IndexOwned>().as_index_ref(),
-                    changes,
-                );
-            }
-        }
-
         // 4) Tick the server's LocalState.
         // 5) Fetch any generated `TerrainChunk`s and insert them into the terrain.
         // in sys/terrain.rs
@@ -1936,5 +1922,80 @@ pub fn remove_admin(
             );
             None
         },
+    }
+}
+
+// The test-world server has no worldgen world/index or RtSim resources.
+fn on_block_update(_ecs: &specs::World, _changes: Vec<BlockDiff>) {
+    #[cfg(feature = "worldgen")]
+    if _changes
+        .iter()
+        .any(|c| c.old.get_rtsim_resource() != c.new.get_rtsim_resource())
+    {
+        _ecs.write_resource::<rtsim::RtSim>().hook_block_update(
+            &_ecs.read_resource::<Arc<world::World>>(),
+            _ecs.read_resource::<world::IndexOwned>().as_index_ref(),
+            _changes,
+        );
+    }
+}
+
+#[cfg(all(test, not(feature = "worldgen")))]
+mod test_world_resource_tests {
+    use super::*;
+    use common::terrain::{Block, SpriteKind};
+
+    #[test]
+    fn resource_block_updates_do_not_fetch_worldgen_resources() {
+        let old = Block::air(SpriteKind::Gold);
+        let new = Block::air(SpriteKind::Empty);
+        assert_ne!(old.get_rtsim_resource(), new.get_rtsim_resource());
+        on_block_update(&specs::World::new(), vec![BlockDiff {
+            wpos: Vec3::zero(),
+            old,
+            new,
+        }]);
+    }
+
+    #[test]
+    fn test_world_server_completes_first_ticks() {
+        struct TestDir(std::path::PathBuf);
+        impl Drop for TestDir {
+            fn drop(&mut self) { let _ = std::fs::remove_dir_all(&self.0); }
+        }
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let data_dir = TestDir(std::env::temp_dir().join(format!("veloren-test-world-{nonce}")));
+        std::fs::create_dir_all(&data_dir.0).unwrap();
+        let settings = Settings {
+            gameserver_protocols: Vec::new(),
+            auth_server_address: None,
+            query_address: None,
+            ..Settings::default()
+        };
+        let runtime = Arc::new(
+            tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(2)
+                .enable_all()
+                .build()
+                .unwrap(),
+        );
+        let mut server = Server::new(
+            settings,
+            EditableSettings::load(&data_dir.0),
+            DatabaseSettings::new(data_dir.0.join("saves"), SqlLogMode::Disabled),
+            &data_dir.0,
+            &|_| {},
+            Arc::clone(&runtime),
+        )
+        .unwrap();
+        for _ in 0..3 {
+            server
+                .tick(Input::default(), Duration::from_millis(50))
+                .unwrap();
+            server.cleanup();
+        }
     }
 }

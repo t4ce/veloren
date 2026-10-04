@@ -2,6 +2,7 @@ use std;
 
 use proc_macro2;
 use syn;
+use utils;
 
 // The implementation for `WidgetCommon`.
 pub fn impl_widget_common(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
@@ -81,31 +82,20 @@ fn common_builder_field(ast: &syn::DeriveInput) -> Result<&syn::Ident, Error> {
     let mut common_field = None;
     for field in body.fields.iter() {
         // First, search for the attribute.
-        for attr in &field.attrs {
-            if let Some(_meta) = attr.interpret_meta() {
-                let mut is_conrod=false;
-                let mut has_common_builder = false;
-                if let syn::Meta::List(_metalist) = _meta {
-                    if _metalist.ident == "conrod" {
-                        is_conrod = true;
-                    }
-
-                    has_common_builder = _metalist.nested.iter().any(|v| match *v {
-                        syn::NestedMeta::Meta(syn::Meta::Word(ref w))
-                            if w == "common_builder" => true,
-                        _ => false,
-                    });
+        for items in utils::conrod_attrs(&field.attrs) {
+            let has_common_builder = items.iter().any(|item| match item {
+                syn::Meta::Path(path) => path.is_ident("common_builder"),
+                _ => false,
+            });
+            if has_common_builder {
+                // There should only be one `CommonBuilder` attribute.
+                if common_field.is_some() {
+                    return Err(Error::MultipleCommonBuilderFields);
                 }
-                if is_conrod && has_common_builder {
-                    // There should only be one `CommonBuilder` attribute.
-                    if common_field.is_some() {
-                        return Err(Error::MultipleCommonBuilderFields);
-                    }
-                    common_field = match field.ident.as_ref() {
-                        Some(ident) => Some(ident),
-                        None => return Err(Error::UnnamedCommonBuilderField),
-                    };
-                }
+                common_field = match field.ident.as_ref() {
+                    Some(ident) => Some(ident),
+                    None => return Err(Error::UnnamedCommonBuilderField),
+                };
             }
         }
     }

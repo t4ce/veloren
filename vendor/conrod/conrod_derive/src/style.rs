@@ -121,10 +121,8 @@ fn params(ast: &syn::DeriveInput) -> Result<Params, Error> {
             let mut item = None;
             'attrs: for nested_items in attr_elems {
                 for nested_item in nested_items{
-                    if let syn::NestedMeta::Meta(ref meta_item) = nested_item {
-                        item = Some(meta_item.clone());
-                        break 'attrs;
-                    }
+                    item = Some(nested_item);
+                    break 'attrs;
                 }
             }
 
@@ -134,12 +132,12 @@ fn params(ast: &syn::DeriveInput) -> Result<Params, Error> {
             };
 
             let literal = match item {
-                syn::Meta::NameValue(syn::MetaNameValue{ref ident, ref lit,..}) if ident == "default" => lit,
+                syn::Meta::NameValue(syn::MetaNameValue{ref path, ref value,..}) if path.is_ident("default") => value,
                 ref item => return Some(Err(Error::UnexpectedMetaItem(item.clone()))),
             };
 
             let default: syn::Expr = match *literal {
-                syn::Lit::Str(ref litstr) => litstr.clone().parse().unwrap(),
+                syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Str(ref litstr), .. }) => litstr.parse().unwrap(),
                 ref literal => return Some(Err(Error::UnexpectedLiteral(literal.clone()))),
             };
             let ident = match field.ident {
@@ -205,7 +203,7 @@ enum Error {
     NotStruct,
     TupleStruct,
     UnitStruct,
-    UnexpectedLiteral(syn::Lit),
+    UnexpectedLiteral(syn::Expr),
     UnexpectedMetaItem(syn::Meta),
     UnnamedStructField,
     NonOptionFieldTy,

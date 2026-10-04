@@ -14,16 +14,14 @@ pub fn conrod_attrs<'a, I>(attrs: I) -> ConrodAttrs<I::IntoIter>
 impl<'a, I> Iterator for ConrodAttrs<I>
     where I: Iterator<Item=&'a syn::Attribute>,
 {
-    type Item = Vec<syn::NestedMeta>;
+    type Item = Vec<syn::Meta>;
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(attr) = self.attrs.next() {
-            if let Some(_meta) = attr.interpret_meta() {
-                if let &syn::Meta::List(ref _metalist) = &_meta{
-                    if _metalist.ident == "conrod" {
-                        let j = _metalist.nested.clone().into_pairs().map(|pair|pair.into_value()).collect::<Vec<syn::NestedMeta>>();
-                        return Some(j);
-                    }
-                }
+            if attr.path().is_ident("conrod") && matches!(attr.meta, syn::Meta::List(_)) {
+                let nested = attr
+                    .parse_args_with(syn::punctuated::Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated)
+                    .expect("invalid conrod attribute");
+                return Some(nested.into_iter().collect());
             }
         }
         None

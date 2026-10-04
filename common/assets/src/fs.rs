@@ -17,7 +17,13 @@ pub struct FileSystem {
 
 impl FileSystem {
     pub fn new() -> io::Result<Self> {
-        let default = RawFs::new(&*super::ASSETS_PATH)?;
+        let path = &*super::ASSETS_PATH;
+        let default = RawFs::new(path).map_err(|err| {
+            io::Error::new(
+                err.kind(),
+                format!("failed to open asset directory {}: {}", path.display(), err),
+            )
+        })?;
         let override_dir = std::env::var_os("VELOREN_ASSETS_OVERRIDE").and_then(|path| {
             RawFs::new(path)
                 .map_err(|err| tracing::error!("Error setting override assets directory: {}", err))
@@ -25,7 +31,12 @@ impl FileSystem {
         });
 
         let canary = fs::read_to_string(super::ASSETS_PATH.join("common").join("canary.canary"))
-            .map_err(|e| io::Error::other(format!("failed to load canary asset: {}", e)))?;
+            .map_err(|e| {
+                io::Error::new(
+                    e.kind(),
+                    format!("failed to load canary asset in {}: {}", path.display(), e),
+                )
+            })?;
 
         if !canary.starts_with("VELOREN_CANARY_MAGIC") {
             panic!("Canary asset `canary.canary` was present but did not contain the expected data. This *heavily* implies that you've not correctly set up Git LFS (Large File Storage). Visit `https://book.veloren.net/contributors/development-tools.html#git-lfs` for more information about setting up Git LFS.");

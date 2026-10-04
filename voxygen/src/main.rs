@@ -109,6 +109,10 @@ fn main() {
 
     // Load the settings
     let mut settings = Settings::load(&config_dir);
+    // Start windowed even when the previous session saved fullscreen or maximized.
+    settings.graphics.window.size = [1920, 1080];
+    settings.graphics.window.maximised = false;
+    settings.graphics.fullscreen.enabled = false;
     settings.display_warnings();
 
     panic_handler::set_panic_hook(log_filename, logs_dir);

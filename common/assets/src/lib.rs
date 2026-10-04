@@ -347,6 +347,21 @@ lazy_static! {
             paths.push(var.into());
         }
 
+        // TRUEOS has no executable-path discovery. App-local assets take
+        // precedence over the shared installation, after the explicit override.
+        #[cfg(target_os = "trueos")]
+        {
+            paths.push(PathBuf::from("assets"));
+            // Keep the shared alias absolute: assets_manager canonicalizes
+            // its root against the app's cwd before opening it.
+            paths.push(
+                std::env::var_os("TRUEOS_APP_COMMON")
+                    .map(PathBuf::from)
+                    .unwrap_or_else(|| PathBuf::from("/common"))
+                    .join("veloren/assets"),
+            );
+        }
+
         // 2. Executable path
         if let Ok(mut path) = std::env::current_exe() {
             path.pop();

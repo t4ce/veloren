@@ -268,10 +268,8 @@ impl Window {
         #[allow(unused_mut)] //ensure no weird issues on different platforms
         let mut attributes = winit::window::Window::default_attributes()
             .with_title("Veloren")
-            .with_inner_size(winit::dpi::LogicalSize::new(
-                window.size[0] as f64,
-                window.size[1] as f64,
-            ))
+            // Request Full HD in pixels, independently of desktop display scaling.
+            .with_inner_size(winit::dpi::PhysicalSize::new(window.size[0], window.size[1]))
             .with_maximized(window.maximised);
 
         #[cfg(not(any(target_os = "windows", target_os = "macos")))]

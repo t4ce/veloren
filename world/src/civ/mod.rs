@@ -2,6 +2,7 @@
 
 pub mod airship_travel;
 mod econ;
+mod peak;
 
 #[cfg(feature = "airship_maps")]
 pub mod airship_route_map;
@@ -235,17 +236,28 @@ impl Civs {
         report_stage: &dyn Fn(WorldCivStage),
     ) -> Self {
         prof_span!("Civs::generate");
+        let mut budget = crate::generation::WorkBudget::new();
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: civs stage=enter");
         let mut this = Self::default();
         let rng = ChaChaRng::from_seed(seed_expan::rng_state(seed));
         let name_rng = rng.clone();
         let mut name_ctx = GenCtx { sim, rng: name_rng };
         if index.features().peak_naming {
+            #[cfg(target_os = "trueos")]
+            eprintln!("velosrv: civs stage=peak-naming-start");
             info!("starting peak naming");
             this.name_peaks(&mut name_ctx);
+            #[cfg(target_os = "trueos")]
+            eprintln!("velosrv: civs stage=peak-naming-complete");
         }
         if index.features().biome_naming {
+            #[cfg(target_os = "trueos")]
+            eprintln!("velosrv: civs stage=biome-naming-start");
             info!("starting biome naming");
             this.name_biomes(&mut name_ctx);
+            #[cfg(target_os = "trueos")]
+            eprintln!("velosrv: civs stage=biome-naming-complete");
         }
 
         let initial_civ_count = initial_civ_count(sim.map_size_lg());
@@ -257,6 +269,7 @@ impl Civs {
         info!("starting civilisation creation");
         prof_span!(guard, "create civs");
         for i in 0..initial_civ_count {
+            budget.checkpoint();
             prof_span!("create civ");
             debug!("Creating civilisation...");
             if this.birth_civ(&mut ctx.reseed()).is_none() {
@@ -271,8 +284,9 @@ impl Civs {
         prof_span!(guard, "find locations and establish sites");
         let world_dims = ctx.sim.get_aabr();
         for _placement in 0..initial_civ_count * 3 {
+            budget.checkpoint();
             #[cfg(target_os = "trueos")]
-            eprintln!(
+            tracing::debug!(
                 "velosrv: sites stage=location-start placement={}/{}",
                 _placement + 1,
                 initial_civ_count * 3
@@ -469,7 +483,7 @@ impl Civs {
                 }))
             });
             #[cfg(target_os = "trueos")]
-            eprintln!(
+            tracing::debug!(
                 "velosrv: sites stage=location-complete placement={}",
                 _placement + 1
             );
@@ -484,11 +498,19 @@ impl Civs {
         let mut cnt = 0;
         let mut gen_meta = SitesGenMeta::new(seed);
         for sim_site in this.sites.values_mut() {
+            budget.checkpoint();
             cnt += 1;
             #[cfg(target_os = "trueos")]
-            eprintln!(
+            if cnt == 1 || cnt % 10 == 0 {
+                eprintln!("velosrv: sites stage=building completed={}", cnt - 1);
+                std::thread::yield_now();
+            }
+            #[cfg(target_os = "trueos")]
+            tracing::debug!(
                 "velosrv: sites stage=build-start site={} kind={:?} center={:?}",
-                cnt, sim_site.kind, sim_site.center
+                cnt,
+                sim_site.kind,
+                sim_site.center
             );
             let wpos = sim_site
                 .center
@@ -653,25 +675,27 @@ impl Civs {
             });
             sim_site.site_tmp = Some(site);
             #[cfg(target_os = "trueos")]
-            eprintln!("velosrv: sites stage=generator-complete site={}", cnt);
+            tracing::debug!("velosrv: sites stage=generator-complete site={}", cnt);
             let site_ref = &index.sites[site];
 
             let radius_chunks =
                 (site_ref.radius() / TerrainChunkSize::RECT_SIZE.x as f32).ceil() as usize;
             #[cfg(target_os = "trueos")]
-            eprintln!(
+            tracing::debug!(
                 "velosrv: sites stage=terrain-register site={} radius_chunks={}",
-                cnt, radius_chunks
+                cnt,
+                radius_chunks
             );
             for pos in Spiral2d::new()
                 .map(|offs| sim_site.center + offs)
                 .take((radius_chunks * 2).pow(2))
             {
+                budget.checkpoint();
                 ctx.sim.get_mut(pos).map(|chunk| chunk.sites.push(site));
             }
             debug!(?sim_site.center, "Placed site at location");
             #[cfg(target_os = "trueos")]
-            eprintln!("velosrv: sites stage=build-complete site={}", cnt);
+            tracing::debug!("velosrv: sites stage=build-complete site={}", cnt);
         }
         drop(guard);
         info!(?cnt, "all sites placed");
@@ -683,8 +707,10 @@ impl Civs {
 
         // remember neighbor information in economy
         for (s1, val) in this.track_map.iter() {
+            budget.checkpoint();
             if let Some(index1) = this.sites.get(*s1).site_tmp {
                 for (s2, t) in val.iter() {
+                    budget.checkpoint();
                     if let Some(index2) = this.sites.get(*s2).site_tmp
                         && index.sites.get(index1).do_economic_simulation()
                         && index.sites.get(index2).do_economic_simulation()
@@ -719,6 +745,7 @@ impl Civs {
         prof_span!(guard, "collect natural resources");
         let sites = &mut index.sites;
         (0..ctx.sim.map_size_lg().chunks_len()).for_each(|posi| {
+            budget.checkpoint();
             #[cfg(target_os = "trueos")]
             if posi % 65536 == 0 {
                 eprintln!(
@@ -744,6 +771,7 @@ impl Civs {
         drop(guard);
 
         sites.iter_mut().for_each(|(_, s)| {
+            budget.checkpoint();
             if let Some(econ) = s.economy.as_mut() {
                 econ.cache_economy()
             }
@@ -884,6 +912,7 @@ impl Civs {
     /// Adds lake POIs and names them
     fn name_biomes(&mut self, ctx: &mut GenCtx<impl Rng>) {
         prof_span!("name_biomes");
+        let mut budget = crate::generation::WorkBudget::new();
         let map_size_lg = ctx.sim.map_size_lg();
         let world_size = map_size_lg.chunks();
         let mut biomes: Vec<(common::terrain::BiomeKind, Vec<usize>)> = Vec::new();
@@ -895,6 +924,7 @@ impl Civs {
         to_explore.push(start_point);
 
         while let Some(exploring) = to_explore.pop() {
+            budget.checkpoint();
             if explored[exploring] {
                 continue;
             }
@@ -904,6 +934,7 @@ impl Civs {
             let mut filled = Vec::new();
 
             while let Some(filling) = to_floodfill.pop() {
+                budget.checkpoint();
                 explored[filling] = true;
                 filled.push(filling);
                 for neighbour in common::terrain::neighbors(map_size_lg, filling) {
@@ -925,6 +956,7 @@ impl Civs {
         prof_span!("after flood fill");
         let mut biome_count = 0;
         for biome in biomes {
+            budget.checkpoint();
             let name = match biome.0 {
                 common::terrain::BiomeKind::Lake if biome.1.len() as u32 > 200 => Some(format!(
                     "{} {}",
@@ -1139,6 +1171,7 @@ impl Civs {
                     .1
                     .iter()
                     .map(|b| {
+                        budget.checkpoint();
                         uniform_idx_as_vec2(map_size_lg, *b).as_::<f32>() / biome.1.len() as f32
                     })
                     .sum::<Vec2<f32>>()
@@ -1147,7 +1180,10 @@ impl Civs {
                 let idx = *biome
                     .1
                     .iter()
-                    .min_by_key(|&b| center.distance_squared(uniform_idx_as_vec2(map_size_lg, *b)))
+                    .min_by_key(|&b| {
+                        budget.checkpoint();
+                        center.distance_squared(uniform_idx_as_vec2(map_size_lg, *b))
+                    })
                     .unwrap();
                 let id = self.pois.insert(PointOfInterest {
                     name,
@@ -1155,6 +1191,7 @@ impl Civs {
                     kind: PoiKind::Biome(biome.1.len() as u32),
                 });
                 for chunk in biome.1 {
+                    budget.checkpoint();
                     ctx.sim.chunks[chunk].poi = Some(id);
                 }
                 biome_count += 1;
@@ -1167,6 +1204,7 @@ impl Civs {
     /// Adds mountain POIs and name them
     fn name_peaks(&mut self, ctx: &mut GenCtx<impl Rng>) {
         prof_span!("name_peaks");
+        let mut budget = crate::generation::WorkBudget::new();
         let map_size_lg = ctx.sim.map_size_lg();
         const MIN_MOUNTAIN_ALT: f32 = 600.0;
         const MIN_MOUNTAIN_CHAOS: f32 = 0.35;
@@ -1176,6 +1214,7 @@ impl Civs {
             .iter()
             .enumerate()
             .filter(|(posi, chunk)| {
+                budget.checkpoint();
                 let neighbor_alts_max = common::terrain::neighbors(map_size_lg, *posi)
                     .map(|i| sim_chunks[i].alt as u32)
                     .max();
@@ -1192,28 +1231,16 @@ impl Civs {
             })
             .collect::<Vec<(usize, Vec2<i32>, u32)>>();
         let mut num_peaks = 0;
-        let mut removals = vec![false; peaks.len()];
-        for (i, peak) in peaks.iter().enumerate() {
-            for (k, n_peak) in peaks.iter().enumerate() {
-                // If the difference in position of this peak and another is
-                // below a threshold and this peak's altitude is lower, remove the
-                // peak from the list
-                if i != k
-                    && (peak.1).distance_squared(n_peak.1) < POI_THINNING_DIST_SQRD
-                    && peak.2 <= n_peak.2
-                {
-                    // Remove this peak
-                    // This cannot panic as `removals` is the same length as `peaks`
-                    // i is the index in `peaks`
-                    removals[i] = true;
-                }
-            }
-        }
+        let candidates = peaks.iter().map(|(_, position, altitude)| {
+            ([position.x, position.y], *altitude)
+        }).collect::<Vec<_>>();
+        let removals = peak::removals(&candidates, POI_THINNING_DIST_SQRD, || budget.checkpoint());
         peaks
             .iter()
             .enumerate()
             .filter(|&(i, _)| !removals[i])
             .for_each(|(_, (_, loc, alt))| {
+                budget.checkpoint();
                 num_peaks += 1;
                 self.pois.insert(PointOfInterest {
                     name: {

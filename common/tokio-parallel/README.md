@@ -28,6 +28,22 @@ when possible. Tokio worker count now covers CPU execution as well as I/O.
 CPU closures are synchronous and cooperative, so long individual jobs are not
 preempted. A Tokio worker still relies on TRUEOS's std thread backend.
 
+On TRUEOS, the pinned Tokio vendor disables the unstealable worker LIFO slot.
+Otherwise a synchronous caller can park with its child hidden in that slot,
+while spare workers have no way to claim it. Other targets retain Tokio's
+default; worker-local blocking dependencies there require a runtime built with
+`disable_lifo_slot` (Tokio's unstable configuration).
+
+The adapter also checks a 10 ms carrier-turn budget at root installation, job
+execution, and scope submission boundaries on TRUEOS. When the budget expires,
+it yields the logical std thread with no adapter lock held, then resumes its
+existing continuation. This prevents a succession of inline child jobs from
+monopolizing a carrier without ever reaching a condition-variable wait. The
+budget is checked at boundaries; a single long closure still needs its own
+cooperative checkpoints. No detached slow job is executed by a scoped waiter.
+The native Tokio worker loop independently checks its carrier budget between
+async task polls, so repeated Tokio task yields also let std carrier peers run.
+
 Specs (upstream revision 4e2da1df29ee840baa9b936593c45592b7c9ae27), Shred 0.16.1,
 Hibitset 0.6.4, Hashbrown 0.17.1, and IndexMap 2.14.2 are vendored in `../../vendor`
 to use the same iterator types. The collection feature/module names `rayon`
@@ -50,3 +66,9 @@ contract is covered by the integration suite instead. TRUEOS execution is
 covered by `TRUEOS-Blueprints/probes/veloren_executor`, exercising actual Specs
 component joins and dependency-ordered dispatch on runtimes with one and two
 workers, with nested borrowed joins and descendant scopes.
+The same probe forces 1,024 condition-variable handoffs between eight Hull/native
+callers and 256 already-claimed child joins from Hull and Tokio callers. Two CPU
+tasks also require two sleeping carrier peers to make progress without logging
+or manual std yields inside the workload, both during parallel jobs and while
+yielding only between Tokio tasks. Run it with `QEMU_SMP=4` to exercise two
+background carriers and oversubscribed logical threads.

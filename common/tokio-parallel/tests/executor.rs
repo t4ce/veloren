@@ -78,6 +78,49 @@ fn jobs_execute_on_shared_tokio_workers() {
     });
     assert_eq!(runtime.metrics().num_workers(), pool.current_num_threads());
 }
+
+#[test]
+fn already_claimed_children_wake_hull_and_worker_callers() {
+    let mut builder = tokio::runtime::Builder::new_multi_thread();
+    builder.worker_threads(4).enable_all();
+    // The TRUEOS vendor enables this by default. On the host, opt into the
+    // upstream setting when testing worker-local synchronous dependencies.
+    #[cfg(tokio_unstable)]
+    builder.disable_lifo_slot();
+    let runtime = builder.build().unwrap();
+    let pool = Arc::new(ThreadPool::from_handle(runtime.handle().clone()));
+    for worker_caller in [false, true] {
+        if worker_caller && !cfg!(any(tokio_unstable, target_os = "trueos")) { continue; }
+        let pool = pool.clone();
+        let work = move || pool.install(|| {
+            for round in 0..128 {
+                let (claimed, claim) = std::sync::mpsc::channel();
+                let left_done = std::sync::atomic::AtomicBool::new(false);
+                let left_done = &left_done;
+                let values = join(move || {
+                    claim.recv_timeout(Duration::from_secs(5)).unwrap();
+                    left_done.store(true, Ordering::Release);
+                    round
+                }, || {
+                    claimed.send(()).unwrap();
+                    while !left_done.load(Ordering::Acquire) {
+                        std::thread::sleep(Duration::from_millis(1));
+                    }
+                    std::thread::sleep(Duration::from_millis(2));
+                    round * 3
+                });
+                assert_eq!(values, (round, round * 3));
+            }
+        });
+        let (done, completed) = std::sync::mpsc::channel();
+        if worker_caller {
+            runtime.spawn(async move { work(); done.send(()).unwrap(); });
+        } else {
+            std::thread::spawn(move || { work(); done.send(()).unwrap(); });
+        }
+        completed.recv_timeout(Duration::from_secs(5)).expect("claimed child failed to wake its caller");
+    }
+}
 #[test]
 fn scope_drains_descendants_and_borrowed_writes() {
     let (_runtime, pool) = executor(2);

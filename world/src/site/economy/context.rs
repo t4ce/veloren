@@ -3,6 +3,7 @@ use crate::{
     Index,
     site::economy::{DAYS_PER_MONTH, DAYS_PER_YEAR, Economy, INTER_SITE_TRADE},
 };
+#[cfg(not(any(target_os = "trueos", feature = "cooperative-worldgen")))]
 use tokio_parallel::prelude::*;
 use tracing::{debug, info};
 
@@ -78,6 +79,14 @@ impl EconStatistics {
 
 pub struct Environment {
     csv_file: Option<std::fs::File>,
+    #[cfg(target_os = "trueos")]
+    iteration: usize,
+    #[cfg(target_os = "trueos")]
+    started: std::time::Instant,
+    #[cfg(target_os = "trueos")]
+    last_report: Option<std::time::Instant>,
+    #[cfg(target_os = "trueos")]
+    last_yield: std::time::Instant,
     // context: vergleich::ProgramRun,
 }
 
@@ -89,10 +98,46 @@ impl Environment {
         let csv_file = Economy::csv_open();
         Ok(Self {
             csv_file, /* context */
+            #[cfg(target_os = "trueos")]
+            iteration: 0,
+            #[cfg(target_os = "trueos")]
+            started: std::time::Instant::now(),
+            #[cfg(target_os = "trueos")]
+            last_report: None,
+            #[cfg(target_os = "trueos")]
+            last_yield: std::time::Instant::now(),
         })
     }
 
-    fn iteration(&mut self, _: i32) {}
+    fn iteration(&mut self, _iteration: i32) {
+        #[cfg(target_os = "trueos")]
+        {
+            self.iteration = _iteration as usize;
+        }
+    }
+
+    #[cfg(target_os = "trueos")]
+    fn progress(&mut self, stage: &str) {
+        let now = std::time::Instant::now();
+        if self.iteration == 0
+            || self
+                .last_report
+                .is_none_or(|last| now.duration_since(last).as_secs() >= 2)
+        {
+            eprintln!(
+                "velosrv: economy stage={} tick={}/{} elapsed_s={}",
+                stage,
+                self.iteration,
+                (HISTORY_DAYS / TICK_PERIOD) as usize,
+                self.started.elapsed().as_secs()
+            );
+            self.last_report = Some(now);
+        }
+        if now.duration_since(self.last_yield).as_millis() >= 25 {
+            std::thread::yield_now();
+            self.last_yield = std::time::Instant::now();
+        }
+    }
 
     fn end(mut self, index: &Index) {
         if let Some(f) = self.csv_file.as_mut() {
@@ -149,6 +194,8 @@ impl Environment {
 }
 
 fn simulate_return(index: &mut Index) -> Result<(), std::io::Error> {
+    #[cfg(target_os = "trueos")]
+    eprintln!("velosrv: economy stage=environment-start");
     let mut env = Environment::new()?;
 
     info!("economy simulation start");
@@ -158,13 +205,19 @@ fn simulate_return(index: &mut Index) -> Result<(), std::io::Error> {
             debug!("Year {}", (index.time / DAYS_PER_YEAR) as i32);
         }
         env.iteration(i);
+        #[cfg(target_os = "trueos")]
+        env.progress("tick-start");
         tick(index, TICK_PERIOD, &mut env);
+        #[cfg(target_os = "trueos")]
+        env.progress("tick-complete");
         if i % 5 == 0 {
             env.csv_tick(index);
         }
     }
     info!("economy simulation end");
     env.end(index);
+    #[cfg(target_os = "trueos")]
+    eprintln!("velosrv: economy stage=complete");
     //    csv_footer(f, index);
 
     Ok(())
@@ -195,6 +248,8 @@ pub fn simulate_economy(index: &mut Index) {
 // }
 
 fn tick(index: &mut Index, dt: f32, _env: &mut Environment) {
+    #[cfg(target_os = "trueos")]
+    _env.progress("deliveries");
     if INTER_SITE_TRADE {
         // move deliverables to recipient cities
         for (id, deliv) in index.trade.deliveries.drain() {
@@ -206,6 +261,18 @@ fn tick(index: &mut Index, dt: f32, _env: &mut Environment) {
                 .extend(deliv);
         }
     }
+    #[cfg(target_os = "trueos")]
+    _env.progress("sites-start mode=cooperative");
+    // Bootstrap owns every site exclusively. There is no benefit in parking
+    // the controller at a parallel completion barrier for each history tick.
+    // Finish the same site calculations in order, then distribute their orders.
+    #[cfg(any(target_os = "trueos", feature = "cooperative-worldgen"))]
+    crate::generation::for_each_site(index.sites.iter_mut(), |(site_id, site)| {
+        if site.do_economic_simulation() {
+            site.economy_mut().tick(site_id, dt);
+        }
+    });
+    #[cfg(not(any(target_os = "trueos", feature = "cooperative-worldgen")))]
     index.sites.par_iter_mut().for_each(|(site_id, site)| {
         if site.do_economic_simulation() {
             site.economy_mut().tick(site_id, dt);
@@ -213,6 +280,8 @@ fn tick(index: &mut Index, dt: f32, _env: &mut Environment) {
             // vc.context(&site_id.id().to_string()));
         }
     });
+    #[cfg(target_os = "trueos")]
+    _env.progress("sites-complete mode=cooperative");
     if INTER_SITE_TRADE {
         // distribute orders (travelling merchants)
         for (_id, site) in index.sites.iter_mut() {
@@ -231,6 +300,8 @@ fn tick(index: &mut Index, dt: f32, _env: &mut Environment) {
         }
     }
     //check_money(index);
+    #[cfg(target_os = "trueos")]
+    _env.progress("trade-complete");
 
     index.time += dt;
 }

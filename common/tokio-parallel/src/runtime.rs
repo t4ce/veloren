@@ -53,6 +53,34 @@ mod implementation {
         }
     }
     thread_local! { static CURRENT: RefCell<Option<ThreadPool>> = const { RefCell::new(None) }; }
+    #[cfg(target_os = "trueos")]
+    thread_local! {
+        static LAST_CARRIER_TURN: std::cell::Cell<Option<std::time::Instant>> = const {
+            std::cell::Cell::new(None)
+        };
+    }
+
+    // Tokio's async poll budget cannot interrupt a synchronous CPU closure.
+    // TRUEOS std workers also share cooperative carriers. Give their peers a
+    // turn at our lock-free job boundaries, even when every child is claimed
+    // inline and no condition-variable wait occurs. This bounds uninterrupted
+    // sequences of small jobs, not the duration of an individual user closure.
+    #[inline]
+    fn carrier_checkpoint() {
+        #[cfg(target_os = "trueos")]
+        {
+            let now = std::time::Instant::now();
+            let yield_turn = LAST_CARRIER_TURN.with(|last| match last.get() {
+                Some(previous) => now.duration_since(previous) >= std::time::Duration::from_millis(10),
+                None => { last.set(Some(now)); false },
+            });
+            if yield_turn {
+                std::thread::yield_now();
+                // Time spent parked is not CPU time spent monopolizing a lane.
+                LAST_CARRIER_TURN.with(|last| last.set(Some(std::time::Instant::now())));
+            }
+        }
+    }
     static DEFAULT: OnceLock<ThreadPool> = OnceLock::new();
     static SHARED: Mutex<Option<tokio::runtime::Handle>> = Mutex::new(None);
 
@@ -105,6 +133,7 @@ mod implementation {
         /// runtime.
         pub fn install<F: FnOnce() -> R, R>(&self, f: F) -> R {
             let _entered = Enter(CURRENT.with(|slot| slot.replace(Some(self.context()))));
+            carrier_checkpoint();
             f()
         }
 
@@ -246,12 +275,14 @@ mod implementation {
         }
 
         fn run(&self) {
+            carrier_checkpoint();
             let work = self.state.lock().unwrap().work.take();
             if let Some(work) = work {
                 let result = catch_unwind(AssertUnwindSafe(work));
                 let mut state = self.state.lock().unwrap();
                 state.panic = result.err();
                 state.done = true;
+                drop(state);
                 self.finished.notify_all();
             }
         }
@@ -355,6 +386,7 @@ mod implementation {
             let job = unsafe { Job::borrowed(Box::new(move || f(&child))) };
             self.state.jobs.lock().unwrap().push_back(job.clone());
             submit(&self.pool, &job);
+            carrier_checkpoint();
         }
     }
     struct ScopeWait(Arc<ScopeState>);

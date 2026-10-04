@@ -1636,7 +1636,7 @@ impl Site {
         origin: Vec2<i32>,
     ) -> Self {
         #[cfg(target_os = "trueos")]
-        eprintln!("velosrv: glider stage=enter origin={:?}", origin);
+        tracing::debug!("velosrv: glider stage=enter origin={:?}", origin);
         let mut rng = reseed(rng);
         let mut site = Site {
             origin,
@@ -1648,7 +1648,7 @@ impl Site {
         // only have access to `WorldSim`
         site.name = Some(NameGen::location(&mut rng).generate_town() + " Glider Course");
         #[cfg(target_os = "trueos")]
-        eprintln!("velosrv: glider stage=name-complete");
+        tracing::debug!("velosrv: glider stage=name-complete");
 
         // Pick the starting downhill direction based on the average drop over
         // two chunks in the four cardinal directions
@@ -1680,7 +1680,7 @@ impl Site {
             _ => Dir2::X,
         };
         #[cfg(target_os = "trueos")]
-        eprintln!(
+        tracing::debug!(
             "velosrv: glider stage=direction-complete cardinal={}",
             cardinal
         );
@@ -1717,9 +1717,10 @@ impl Site {
         let mut last_tile_pos = tile_pos;
         for j in 1..(CHUNK_OFFSET * 9 + 1) {
             #[cfg(target_os = "trueos")]
-            eprintln!(
+            tracing::debug!(
                 "velosrv: glider stage=downhill step={} pos={:?}",
-                j, last_pos
+                j,
+                last_pos
             );
             let c_downhill = land.get_chunk_wpos(last_pos).and_then(|c| c.downhill);
             if let Some(downhill) = c_downhill {
@@ -1753,9 +1754,10 @@ impl Site {
         if valid_course && positions.len() > 1 {
             for (i, window) in positions.windows(2).enumerate() {
                 #[cfg(target_os = "trueos")]
-                eprintln!(
+                tracing::debug!(
                     "velosrv: glider stage=plot-start plot={} points={:?}",
-                    i, window
+                    i,
+                    window
                 );
                 if !window.is_empty() {
                     let [(pos, tile_pos), (next_pos, next_tile_pos)] = window else {
@@ -1870,12 +1872,12 @@ impl Site {
                     }
                 }
                 #[cfg(target_os = "trueos")]
-                eprintln!("velosrv: glider stage=plot-complete plot={}", i);
+                tracing::debug!("velosrv: glider stage=plot-complete plot={}", i);
             }
         }
 
         #[cfg(target_os = "trueos")]
-        eprintln!(
+        tracing::debug!(
             "velosrv: glider stage=complete valid={} points={}",
             valid_course,
             positions.len()

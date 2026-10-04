@@ -15,6 +15,7 @@ pub mod canvas;
 pub mod civ;
 mod column;
 pub mod config;
+mod generation;
 pub mod index;
 pub mod land;
 pub mod layer;

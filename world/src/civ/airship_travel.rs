@@ -867,6 +867,8 @@ impl Airships {
         // Spawn airships according to route time so that they are spaced out evenly in
         // time.
         for (route_index, route) in self.routes.iter_mut().enumerate() {
+            #[cfg(target_os = "trueos")]
+            airship_checkpoint("spawn-route", route_index, 0);
             let spawn_time_limit = route.total_time - route.airship_time_spacing;
             let mut next_spawn_time = 0.0;
             let mut prev_seg_route_time = 0.0;
@@ -885,6 +887,10 @@ impl Airships {
 
                 for seg in leg.segments.iter() {
                     while next_spawn_time <= seg.route_time && next_spawn_time <= spawn_time_limit {
+                        #[cfg(target_os = "trueos")]
+                        if spawning_locations.len() % 64 == 0 {
+                            airship_checkpoint("spawn-locations", spawning_locations.len(), 0);
+                        }
                         // spawn an airship on this leg segment at time next_spawn_time
                         // The spawning location depends on the flight phase.
                         // DepartureCruise:
@@ -1122,7 +1128,14 @@ impl Airships {
         debug_airships!(4, "all_dock_points: {:?}", all_dock_points);
 
         // Run the delaunay triangulation on the docking points.
+        #[cfg(target_os = "trueos")]
+        eprintln!(
+            "velosrv: airships stage=triangulation-start docks={}",
+            all_dock_points.len()
+        );
         let triangulation = triangulate(&all_dock_points);
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: airships stage=triangulation-complete");
 
         #[cfg(feature = "airship_maps")]
         save_airship_routes_triangulation(
@@ -1185,6 +1198,12 @@ impl Airships {
             .clamp(1.0, 60.0)
             .round() as usize;
 
+        #[cfg(target_os = "trueos")]
+        eprintln!(
+            "velosrv: airships stage=route-search-start iterations={}",
+            max_iterations
+        );
+
         if let Some((best_segments, _, _max_seg_len, _min_spread, _iteration)) = triangulation
             .eulerized_route_segments(
                 &all_dock_points,
@@ -1193,6 +1212,8 @@ impl Airships {
                 seed,
             )
         {
+            #[cfg(target_os = "trueos")]
+            eprintln!("velosrv: airships stage=route-search-complete");
             #[cfg(debug_assertions)]
             {
                 debug_airships!(4, "Max segment length: {}", _max_seg_len);
@@ -1237,6 +1258,8 @@ impl Airships {
                 }
             }
 
+            #[cfg(target_os = "trueos")]
+            eprintln!("velosrv: airships stage=route-legs-start");
             self.routes = self.create_route_legs(
                 &best_segments,
                 all_dock_points
@@ -1248,7 +1271,14 @@ impl Airships {
             );
 
             // Calculate the spawning locations for airships on the routes.
+            #[cfg(target_os = "trueos")]
+            eprintln!(
+                "velosrv: airships stage=spawn-locations-start routes={}",
+                self.routes.len()
+            );
             self.calculate_spawning_locations();
+            #[cfg(target_os = "trueos")]
+            eprintln!("velosrv: airships stage=spawn-locations-complete");
 
             #[cfg(debug_assertions)]
             {
@@ -1593,6 +1623,44 @@ macro_rules! debug_airship_eulerization {
 /// nodes that the node is connected to.
 type DockNodeGraph = DHashMap<usize, DockNode>;
 
+/// Keep long sequential generation work cooperative on TRUEOS. Progress is
+/// throttled independently of the yield frequency to avoid flooding the
+/// console.
+#[cfg(target_os = "trueos")]
+fn airship_checkpoint(stage: &str, completed: usize, total: usize) {
+    use std::{
+        sync::Mutex,
+        time::{Duration, Instant},
+    };
+    static LAST_REPORT: Mutex<Option<Instant>> = Mutex::new(None);
+    static LAST_YIELD: Mutex<Option<Instant>> = Mutex::new(None);
+    let report = {
+        let mut last = LAST_REPORT.lock().unwrap();
+        let now = Instant::now();
+        if last.is_none_or(|previous| now.duration_since(previous) >= Duration::from_secs(2)) {
+            *last = Some(now);
+            true
+        } else {
+            false
+        }
+    };
+    if report {
+        eprintln!(
+            "velosrv: airships progress stage={} completed={} total={}",
+            stage, completed, total
+        );
+    }
+    let yield_cpu = LAST_YIELD
+        .lock()
+        .unwrap()
+        .is_none_or(|previous| previous.elapsed() >= Duration::from_millis(25));
+    if yield_cpu {
+        std::thread::yield_now();
+        // Count work time after resuming rather than the scheduler's delay.
+        *LAST_YIELD.lock().unwrap() = Some(Instant::now());
+    }
+}
+
 /// Extension functions for Triangulation (from the triangulate crate).
 trait TriangulationExt {
     fn all_edges(&self) -> DHashSet<(usize, usize)>;
@@ -1748,6 +1816,8 @@ impl TriangulationExt for Triangulation {
         max_route_leg_length: f64,
         seed: u32,
     ) -> Option<(Vec<Vec<usize>>, Vec<usize>, usize, f32, usize)> {
+        #[cfg(target_os = "trueos")]
+        airship_checkpoint("graph-preparation", 0, all_dock_points.len());
         let mut edges_to_remove = DHashSet::default();
 
         // There can be at most four incoming and four outgoing edges per node because
@@ -1904,6 +1974,8 @@ impl TriangulationExt for Triangulation {
         let mut best_iteration = 0;
 
         for i in 0..iterations {
+            #[cfg(target_os = "trueos")]
+            airship_checkpoint("route-search", i, iterations);
             // Deterministically randomize the node order to search for the best route
             // segments.
             let mut eulerized_node_connections = mutable_node_connections.clone();
@@ -2157,6 +2229,8 @@ fn find_best_eulerian_circuit(
 
     // Repeat for each node as the starting point.
     for (i, &start_vertex) in graph_keys.iter().enumerate() {
+        #[cfg(target_os = "trueos")]
+        airship_checkpoint("circuit-search", i, graph_keys.len());
         let mut graph = graph.clone();
         let mut circuit = Vec::new();
         let mut stack = Vec::new();
@@ -2164,8 +2238,22 @@ fn find_best_eulerian_circuit(
 
         let mut current_vertex = start_vertex;
 
+        #[cfg(target_os = "trueos")]
+        let mut traversal_steps = 0;
+
         // The algorithm for finding a Eulerian Circuit (Hierholzer's algorithm).
         while !stack.is_empty() || !graph[&current_vertex].connected.is_empty() {
+            #[cfg(target_os = "trueos")]
+            {
+                traversal_steps += 1;
+                if traversal_steps % 256 == 0 {
+                    airship_checkpoint(
+                        "circuit-traversal",
+                        traversal_steps,
+                        circuit.len() + stack.len(),
+                    );
+                }
+            }
             if graph[&current_vertex].connected.is_empty() {
                 circuit.push(current_vertex);
                 circuit_nodes.insert(current_vertex);

@@ -8,6 +8,7 @@ license.workspace = true
 workspace = true
 
 [features]
+cooperative-worldgen = []
 use-dyn-lib = ["common-dynlib", "dyn-lib"]
 be-dyn-lib = ["dyn-lib"]
 dyn-lib = []

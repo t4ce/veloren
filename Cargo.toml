@@ -260,15 +260,3 @@ shred = { path = "vendor/shred" }
 hibitset = { path = "vendor/hibitset" }
 hashbrown = { path = "vendor/hashbrown" }
 indexmap = { path = "vendor/indexmap" }
-
-# # Uncomment this to use a local fork of winit (for testing purposes)
-# winit = { path = "../winit" }
-
-# # Uncomment this to use a local fork of wgpu (for testing purposes)
-# [patch.'https://github.com/gfx-rs/wgpu']
-# wgpu-hal = { path = "../wgpu/wgpu-hal" }
-# wgpu-core = { path = "../wgpu/wgpu-core" }
-# wgpu-types = { path = "../wgpu/wgpu-types" }
-# naga = { path = "../wgpu/naga" }
-
-

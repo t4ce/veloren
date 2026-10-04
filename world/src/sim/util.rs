@@ -394,51 +394,57 @@ pub fn get_horizon_map<F: Float + Sync, A: Send, H: Send>(
     // let epsilon = F::epsilon() * if let x = F::from(map_size.x) { x } else {
     // return Err(()) };
     let march = |dx: isize, maxdx: fn(isize, map_size_lg: MapSizeLg) -> isize| {
-        let mut angles = Vec::with_capacity(map_len);
-        let mut heights = Vec::with_capacity(map_len);
-        (0..map_len)
-            .into_par_iter()
-            .map(|posi| {
-                let wposi =
-                    bounds.min + Vec2::new((posi % map_size.x) as i32, (posi / map_size.x) as i32);
-                if wposi.reduce_partial_min() < 0
-                    || wposi.x as usize >= usize::from(map_size_lg.chunks().x)
-                    || wposi.y as usize >= usize::from(map_size_lg.chunks().y)
-                {
-                    return (to_angle(F::zero()), to_height(F::zero()));
-                }
-                let posi = vec2_as_uniform_idx(map_size_lg, wposi);
-                // March in the given direction.
-                let maxdx = maxdx(wposi.x as isize, map_size_lg);
-                let mut slope = F::zero();
-                let h0 = h(posi);
-                let h = if h0 < minh {
-                    F::zero()
-                } else {
-                    let mut max_height = F::zero();
-                    let maxdz = maxh - h0;
-                    let posi = posi as isize;
-                    for deltax in 1..maxdx {
-                        let posj = (posi + deltax * dx) as usize;
-                        let deltax = chunk_x * F::from(deltax).unwrap();
-                        let h_j_est = slope * deltax;
-                        if h_j_est > maxdz {
-                            break;
-                        }
-                        let h_j_act = h(posj) - h0;
-                        if
-                        /* h_j_est - h_j_act <= epsilon */
-                        h_j_est <= h_j_act {
-                            slope = h_j_act / deltax;
-                            max_height = h_j_act;
-                        }
+        let sample = |posi| {
+            let wposi =
+                bounds.min + Vec2::new((posi % map_size.x) as i32, (posi / map_size.x) as i32);
+            if wposi.reduce_partial_min() < 0
+                || wposi.x as usize >= usize::from(map_size_lg.chunks().x)
+                || wposi.y as usize >= usize::from(map_size_lg.chunks().y)
+            {
+                return (to_angle(F::zero()), to_height(F::zero()));
+            }
+            let posi = vec2_as_uniform_idx(map_size_lg, wposi);
+            // March in the given direction.
+            let maxdx = maxdx(wposi.x as isize, map_size_lg);
+            let mut slope = F::zero();
+            let h0 = h(posi);
+            let h = if h0 < minh {
+                F::zero()
+            } else {
+                let mut max_height = F::zero();
+                let maxdz = maxh - h0;
+                let posi = posi as isize;
+                for deltax in 1..maxdx {
+                    let posj = (posi + deltax * dx) as usize;
+                    let deltax = chunk_x * F::from(deltax).unwrap();
+                    let h_j_est = slope * deltax;
+                    if h_j_est > maxdz {
+                        break;
                     }
-                    h0 - minh + max_height
-                };
-                let a = slope;
-                (to_angle(a), to_height(h))
-            })
-            .unzip_into_vecs(&mut angles, &mut heights);
+                    let h_j_act = h(posj) - h0;
+                    if
+                    /* h_j_est - h_j_act <= epsilon */
+                    h_j_est <= h_j_act {
+                        slope = h_j_act / deltax;
+                        max_height = h_j_act;
+                    }
+                }
+                h0 - minh + max_height
+            };
+            let a = slope;
+            (to_angle(a), to_height(h))
+        };
+        #[cfg(any(target_os = "trueos", feature = "cooperative-worldgen"))]
+        let (angles, heights) = crate::generation::collect_ordered(0..map_len, sample)
+            .into_iter().unzip();
+        #[cfg(not(any(target_os = "trueos", feature = "cooperative-worldgen")))]
+        let (angles, heights) = {
+            let mut angles = Vec::with_capacity(map_len);
+            let mut heights = Vec::with_capacity(map_len);
+            (0..map_len).into_par_iter().map(sample)
+                .unzip_into_vecs(&mut angles, &mut heights);
+            (angles, heights)
+        };
         (angles, heights)
     };
     let west = march(-1, |x, _| x);

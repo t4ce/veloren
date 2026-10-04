@@ -29,9 +29,14 @@ pub trait SpotGenerate {
 impl SpotGenerate for Spot {
     fn generate(world: &mut WorldSim) {
         use BiomeKind::*;
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: spots stage=manifest-start");
+        let properties = &RON_SPOT_PROPERTIES.0;
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: spots stage=manifest-complete entries={}", properties.len());
         // Trees/spawn: false => *No* trees around the spot
         // Themed Spots -> Act as an introduction to themes of sites
-        for s in RON_SPOT_PROPERTIES.0.iter() {
+        for s in properties.iter() {
             Self::generate_spots(
                 Spot::RonFile(s),
                 world,
@@ -345,6 +350,9 @@ impl SpotGenerate for Spot {
         spawn: bool,
     ) {
         let world_size = world.get_size();
+        let mut budget = crate::generation::WorkBudget::new();
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: spots stage=placement-start spot={spot:?}");
         for _ in
             0..(world_size.product() as f32 * TerrainChunkSize::RECT_SIZE.product() as f32 * freq
                 / 1000.0f32.powi(2))
@@ -362,7 +370,10 @@ impl SpotGenerate for Spot {
                     chunk.spawn_rate = 0.0;
                 }
             }
+            budget.checkpoint();
         }
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: spots stage=placement-complete spot={spot:?}");
     }
 }
 

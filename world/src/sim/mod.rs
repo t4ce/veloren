@@ -28,7 +28,6 @@ pub(crate) use self::{
 use crate::{
     CONFIG, IndexRef,
     all::{Environment, ForestKind, TreeAttr},
-    block::BlockGen,
     civ::{Place, PointOfInterest},
     column::ColumnGen,
     site::Site,
@@ -1783,34 +1782,30 @@ impl WorldSim {
             (/* 0.0.max( */height/*)*/ as Alt * 255.0 / self.max_height as Alt).floor() as u8
         };
 
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: map-data stage=samples-start chunks={}", self.map_size_lg().chunks_len());
         let samples_data = {
             prof_span!("samples data");
             let column_sample = ColumnGen::new(self);
-            (0..self.map_size_lg().chunks_len())
+            let sample = |posi| column_sample.get((
+                uniform_idx_as_vec2(self.map_size_lg(), posi)
+                    * TerrainChunkSize::RECT_SIZE.map(|e| e as i32),
+                index,
+                calendar,
+            ));
+            #[cfg(any(target_os = "trueos", feature = "cooperative-worldgen"))]
+            let samples = crate::generation::collect_ordered(0..self.map_size_lg().chunks_len(), sample);
+            #[cfg(not(any(target_os = "trueos", feature = "cooperative-worldgen")))]
+            let samples = (0..self.map_size_lg().chunks_len())
                 .into_par_iter()
-                .map_init(
-                    || Box::new(BlockGen::new(ColumnGen::new(self))),
-                    |_block_gen, posi| {
-                        let sample = column_sample.get(
-                            (
-                                uniform_idx_as_vec2(self.map_size_lg(), posi) * TerrainChunkSize::RECT_SIZE.map(|e| e as i32),
-                                index,
-                                calendar,
-                            )
-                        )?;
-                        // sample.water_level = CONFIG.sea_level.max(sample.water_level);
-
-                        Some(sample)
-                    },
-                )
-                /* .map(|posi| {
-                    let mut sample = column_sample.get(
-                        uniform_idx_as_vec2(self.map_size_lg(), posi) * TerrainChunkSize::RECT_SIZE.map(|e| e as i32),
-                    );
-                }) */
-                .collect::<Vec<_>>()
-                .into_boxed_slice()
+                .map(sample)
+                .collect::<Vec<_>>();
+            samples.into_boxed_slice()
         };
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: map-data stage=samples-complete");
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: map-data stage=horizons-start");
 
         let horizons = get_horizon_map(
             self.map_size_lg(),
@@ -1833,6 +1828,11 @@ impl WorldSim {
         )
         .unwrap();
 
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: map-data stage=horizons-complete");
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: map-data stage=pixels-start");
+        let mut budget = crate::generation::WorkBudget::new();
         let mut v = vec![0u32; self.map_size_lg().chunks_len()];
         let mut alts = vec![0u32; self.map_size_lg().chunks_len()];
         // TODO: Parallelize again.
@@ -1855,8 +1855,11 @@ impl WorldSim {
                 let posi = (pos.y << self.map_size_lg().vec().x) | pos.x;
                 v[posi] = u32::from_le_bytes([r, g, b, a]);
                 alts[posi] = (((alt.clamp(0.0, 1.0) * 8191.0) as u32) & 0x1FFF) << 3;
+                budget.checkpoint();
             },
         );
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: map-data stage=pixels-complete");
         WorldMapMsg {
             dimensions_lg: self.map_size_lg().vec(),
             max_height: self.max_height,

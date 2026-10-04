@@ -323,8 +323,12 @@ impl Server {
         #[cfg(not(feature = "worldgen"))]
         let (world, index) = World::generate(settings.world_seed);
 
+        #[cfg(all(target_os = "trueos", feature = "worldgen"))]
+        eprintln!("velosrv: startup stage=map-data-start");
         #[cfg(feature = "worldgen")]
         let map = world.get_map_data(index.as_index_ref(), &pools);
+        #[cfg(all(target_os = "trueos", feature = "worldgen"))]
+        eprintln!("velosrv: startup stage=map-data-complete");
         #[cfg(not(feature = "worldgen"))]
         let map = common_net::msg::WorldMapMsg {
             dimensions_lg: Vec2::zero(),

@@ -167,8 +167,13 @@ impl World {
 
             report_stage(WorldGenerateStage::SpotGeneration);
             Spot::generate(&mut sim);
+            #[cfg(target_os = "trueos")]
+            eprintln!("velosrv: worldgen stage=spots-complete");
 
-            (Self { sim, civs }, IndexOwned::new(index))
+            let result = (Self { sim, civs }, IndexOwned::new(index));
+            #[cfg(target_os = "trueos")]
+            eprintln!("velosrv: worldgen stage=complete");
+            result
         })
     }
 
@@ -183,18 +188,24 @@ impl World {
     pub fn get_map_data(&self, index: IndexRef, threadpool: &tokio_parallel::ThreadPool) -> WorldMapMsg {
         prof_span!("World::get_map_data");
         threadpool.install(|| {
-            WorldMapMsg {
+            #[cfg(target_os = "trueos")]
+            eprintln!("velosrv: map-data stage=markers-start");
+            let mut budget = generation::WorkBudget::new();
+            let map = WorldMapMsg {
                 pois: self
                     .civs()
                     .pois
                     .iter()
-                    .map(|(_, poi)| world_msg::PoiInfo {
-                        name: poi.name.clone(),
-                        kind: match &poi.kind {
-                            civ::PoiKind::Peak(alt) => world_msg::PoiKind::Peak(*alt),
-                            civ::PoiKind::Biome(size) => world_msg::PoiKind::Lake(*size),
-                        },
-                        wpos: poi.loc * TerrainChunkSize::RECT_SIZE.map(|e| e as i32),
+                    .map(|(_, poi)| {
+                        budget.checkpoint();
+                        world_msg::PoiInfo {
+                            name: poi.name.clone(),
+                            kind: match &poi.kind {
+                                civ::PoiKind::Peak(alt) => world_msg::PoiKind::Peak(*alt),
+                                civ::PoiKind::Biome(size) => world_msg::PoiKind::Lake(*size),
+                            },
+                            wpos: poi.loc * TerrainChunkSize::RECT_SIZE.map(|e| e as i32),
+                        }
                     })
                     .collect(),
                 sites: self
@@ -216,6 +227,7 @@ impl World {
                         layer::cave::surface_entrances(&Land::from_sim(self.sim()), index)
                             .map(|wpos| Marker::at(wpos.as_()).with_kind(MarkerKind::Cave)),
                     )
+                    .inspect(|_| budget.checkpoint())
                     .collect(),
                 possible_starting_sites: {
                     const STARTING_SITE_COUNT: usize = 5;
@@ -226,6 +238,7 @@ impl World {
                         .iter()
                         .filter_map(|(_, civ_site)| Some((civ_site, civ_site.site_tmp?)))
                         .map(|(civ_site, site_id)| {
+                            budget.checkpoint();
                             // Score the site according to how suitable it is to be a starting site
 
                             let site = &index.sites[site_id];
@@ -306,8 +319,15 @@ impl World {
                         .take(STARTING_SITE_COUNT)
                         .collect()
                 },
-                ..self.sim.get_map(index, self.sim().calendar.as_ref())
-            }
+                ..{
+                    #[cfg(target_os = "trueos")]
+                    eprintln!("velosrv: map-data stage=markers-complete");
+                    self.sim.get_map(index, self.sim().calendar.as_ref())
+                }
+            };
+            #[cfg(target_os = "trueos")]
+            eprintln!("velosrv: map-data stage=complete");
+            map
         })
     }
 

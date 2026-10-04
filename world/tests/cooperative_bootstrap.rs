@@ -73,3 +73,22 @@ fn site_phase_finishes_each_borrowed_update_before_trade() {
     let delivered = sites.iter().sum::<usize>();
     assert_eq!(delivered, 106);
 }
+
+#[test]
+fn map_sampling_preserves_positions_absent_cells_and_stateful_order() {
+    let mut seed = 7u64;
+    let mut sample = |position| {
+        seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+        (position % 3 != 0).then_some((position, seed))
+    };
+    let actual = generation::collect_ordered(0..4096, &mut sample);
+    let final_seed = seed;
+    let mut expected_seed = 7u64;
+    let expected = (0..4096).map(|position| {
+        expected_seed = expected_seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+        (position % 3 != 0).then_some((position, expected_seed))
+    }).collect::<Vec<_>>();
+    assert_eq!(actual, expected);
+    assert_eq!(final_seed, expected_seed);
+    assert_eq!(actual.len(), 4096);
+}

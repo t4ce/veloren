@@ -36,3 +36,15 @@ pub(crate) fn for_each_site<T>(sites: impl IntoIterator<Item = T>, mut update: i
         budget.checkpoint();
     }
 }
+
+/// Retain every result (including absent samples) in input order, without a
+/// parallel completion barrier during cooperative bootstrap.
+#[cfg(any(target_os = "trueos", feature = "cooperative-worldgen"))]
+pub(crate) fn collect_ordered<T, U>(items: impl IntoIterator<Item = T>, mut sample: impl FnMut(T) -> U) -> Vec<U> {
+    let mut budget = WorkBudget::new();
+    items.into_iter().map(|item| {
+        let value = sample(item);
+        budget.checkpoint();
+        value
+    }).collect()
+}

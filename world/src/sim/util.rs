@@ -9,7 +9,7 @@ use noise::{
     permutationtable::PermutationTable,
 };
 use num::Float;
-use rayon::prelude::*;
+use tokio_parallel::prelude::*;
 use std::sync::Arc;
 use vek::*;
 

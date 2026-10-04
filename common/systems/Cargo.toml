@@ -20,7 +20,7 @@ common-ecs = { package = "veloren-common-ecs", path = "../ecs" }
 common-base = { package = "veloren-common-base", path = "../base" }
 
 rand = { workspace = true }
-rayon = { workspace = true }
+tokio-parallel = { workspace = true }
 tracing = { workspace = true }
 vek = { workspace = true }
 ordered-float = { workspace = true }

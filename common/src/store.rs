@@ -1,4 +1,4 @@
-use rayon::prelude::*;
+use tokio_parallel::prelude::*;
 use std::{
     cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd},
     fmt, hash,

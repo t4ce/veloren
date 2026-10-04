@@ -49,7 +49,7 @@ hickory-resolver = { version = "0.26.1", features = [
 image = { workspace = true }
 num = { workspace = true }
 tracing = { workspace = true }
-rayon = { workspace = true }
+tokio-parallel = { workspace = true }
 specs = { workspace = true, features = [
     "serde",
     "storage-event-control",

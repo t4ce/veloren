@@ -446,7 +446,7 @@ impl<'a> ParallelTasks<'a> {
     }
 
     /// Run registered tasks.
-    fn run(self, needs: PipelineNeeds, pool: &rayon::ThreadPool) {
+    fn run(self, needs: PipelineNeeds, pool: &tokio_parallel::ThreadPool) {
         prof_span!(_guard, "ParallelTasks::run");
         pool.scope(|scope| {
             for task in self.tasks {
@@ -905,7 +905,7 @@ pub(super) fn initial_create_pipelines(
 
     let is_opengl = matches!(backend, wgpu::Backend::Gl);
     // Create threadpool for parallel portion
-    let pool = rayon::ThreadPoolBuilder::new()
+    let pool = tokio_parallel::ThreadPoolBuilder::new()
         .thread_name(|n| format!("pipeline-creation-{}", n))
         // Use a single thread for opengl because the pipeline creation is serialized by a lock in
         // the backend anyway and having many threads waiting for the lock for a long time can
@@ -998,7 +998,7 @@ pub(super) fn recreate_pipelines(
 
     let is_opengl = matches!(backend, wgpu::Backend::Gl);
     // Create threadpool for parallel portion
-    let pool = rayon::ThreadPoolBuilder::new()
+    let pool = tokio_parallel::ThreadPoolBuilder::new()
         .thread_name(|n| format!("pipeline-recreation-{}", n))
         // 0 tells rayon to select the number automatically
         .num_threads(if is_opengl { 1 } else { 0 })

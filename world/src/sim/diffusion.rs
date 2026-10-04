@@ -1,5 +1,5 @@
 use super::Alt;
-use rayon::prelude::*;
+use tokio_parallel::prelude::*;
 
 /// From <https://github.com/fastscape-lem/fastscapelib-fortran/blob/master/src/Diffusion.f90>
 ///

@@ -5,7 +5,7 @@ use veloren_world::{
 };
 
 fn main() {
-    let threadpool = rayon::ThreadPoolBuilder::new().build().unwrap();
+    let threadpool = tokio_parallel::ThreadPoolBuilder::new().build().unwrap();
 
     let start = Instant::now();
     let (world, index) = World::generate(

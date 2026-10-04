@@ -2,14 +2,14 @@ use crate::metrics::SysMetrics;
 use specs::{ReadExpect, RunNow};
 use std::{collections::HashMap, time::Instant};
 
-/// measuring the level of threads a unit of code ran on. Use Rayon when it ran
+/// measuring the level of threads a unit of code ran on. Use Tokio when it ran
 /// on their threadpool. Use Exact when you know on how many threads your code
 /// ran on exactly.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ParMode {
     None, /* Job is not running at all */
     Single,
-    Rayon,
+    Tokio,
     Exact(u32),
 }
 
@@ -46,7 +46,7 @@ pub struct CpuTimeline {
     /// measurements for a System
     /// - The first entry will always be ParMode::Single, as when the
     ///   System::run is executed, we run single threaded until we start a
-    ///   Rayon::ParIter or similar
+    ///   Tokio parallel iterators or similar
     /// - The last entry will contain the end time of the System. To mark the
     ///   End it will always contain ParMode::None, which means from that point
     ///   on 0 CPU threads work in this system
@@ -62,13 +62,13 @@ pub struct CpuTimeStats {
 
 /// Parallel Mode tells us how much you are scaling. `None` means your code
 /// isn't running. `Single` means you are running single threaded.
-/// `Rayon` means you are running on the rayon threadpool.
+/// `Tokio` means work is split across the shared Tokio workers.
 impl ParMode {
-    fn threads(&self, rayon_threads: u32) -> u32 {
+    fn threads(&self, executor_threads: u32) -> u32 {
         match self {
             ParMode::None => 0,
             ParMode::Single => 1,
-            ParMode::Rayon => rayon_threads,
+            ParMode::Tokio => executor_threads,
             ParMode::Exact(u) => *u,
         }
     }
@@ -163,7 +163,7 @@ impl CpuTimeStats {
 pub fn gen_stats(
     timelines: &HashMap<String, CpuTimeline>,
     tick_work_start: Instant,
-    rayon_threads: u32,
+    executor_threads: u32,
     physical_threads: u32,
 ) -> HashMap<String, CpuTimeStats> {
     let mut result = HashMap::new();
@@ -184,7 +184,7 @@ pub fn gen_stats(
         // get all parallelisation at this particular time
         let individual_cores_wanted = timelines
             .iter()
-            .map(|(k, t)| (k, t.get(*time).threads(rayon_threads)))
+            .map(|(k, t)| (k, t.get(*time).threads(executor_threads)))
             .collect::<Vec<_>>();
         let total = individual_cores_wanted
             .iter()
@@ -229,7 +229,7 @@ pub fn gen_stats(
 ///
 ///     fn run(job: &mut Job<Self>, (_read, _read2): Self::SystemData) {
 ///         std::thread::sleep(Duration::from_millis(100));
-///         job.cpu_stats.measure(ParMode::Rayon);
+///         job.cpu_stats.measure(ParMode::Tokio);
 ///         std::thread::sleep(Duration::from_millis(500));
 ///         job.cpu_stats.measure(ParMode::Single);
 ///         std::thread::sleep(Duration::from_millis(40));
@@ -342,7 +342,7 @@ mod tests {
         const RAYON_THREADS: u32 = 4;
         const PHYSICAL_THREADS: u32 = RAYON_THREADS;
         let tick_start = Instant::now();
-        let job_d = vec![(500, 1500, ParMode::Rayon)];
+        let job_d = vec![(500, 1500, ParMode::Tokio)];
         let timelines = mock_timelines(tick_start, job_d);
 
         let stats = gen_stats(&timelines, tick_start, RAYON_THREADS, PHYSICAL_THREADS);
@@ -409,8 +409,8 @@ mod tests {
         const PHYSICAL_THREADS: u32 = RAYON_THREADS;
         let tick_start = Instant::now();
         let job_d = vec![
-            (2000, 5000, ParMode::Rayon),
-            (3000, 7000, ParMode::Rayon),
+            (2000, 5000, ParMode::Tokio),
+            (3000, 7000, ParMode::Tokio),
             (3500, 4500, ParMode::Single),
         ];
         let timelines = mock_timelines(tick_start, job_d);

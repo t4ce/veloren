@@ -12,7 +12,7 @@ const CENTER: Vec2<i32> = Vec2 { x: 512, y: 512 };
 const GEN_SIZE: i32 = 4;
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    let pool = rayon::ThreadPoolBuilder::new().build().unwrap();
+    let pool = tokio_parallel::ThreadPoolBuilder::new().build().unwrap();
     // Generate chunks here to test
     let (world, index) = World::generate(
         sim::DEFAULT_WORLD_SEED,

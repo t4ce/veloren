@@ -80,7 +80,7 @@ use hickory_resolver::{
 use image::DynamicImage;
 use network::{ConnectAddr, Network, Participant, Pid, Stream};
 use num::traits::FloatConst;
-use rayon::prelude::*;
+use tokio_parallel::prelude::*;
 use rustls::client::danger::ServerCertVerified;
 use specs::Component;
 use std::{

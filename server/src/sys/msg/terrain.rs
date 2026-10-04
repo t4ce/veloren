@@ -11,7 +11,7 @@ use common::{
 };
 use common_ecs::{Job, Origin, ParMode, Phase, System};
 use common_net::msg::{ClientGeneral, ServerGeneral};
-use rayon::prelude::*;
+use tokio_parallel::prelude::*;
 use specs::{Entities, Join, LendJoin, Read, ReadExpect, ReadStorage, Write, WriteStorage};
 use tracing::{debug, trace};
 
@@ -51,7 +51,7 @@ impl<'a> System<'a> for Sys {
             mut clients,
         ): Self::SystemData,
     ) {
-        job.cpu_stats.measure(ParMode::Rayon);
+        job.cpu_stats.measure(ParMode::Tokio);
         let mut new_chunk_requests = (&entities, &mut clients, (&presences).maybe())
             .join()
             // NOTE: Required because Specs has very poor work splitting for sparse joins.

@@ -1,5 +1,5 @@
 use common::terrain::CoordinateConversions;
-use rayon::ThreadPoolBuilder;
+use tokio_parallel::ThreadPoolBuilder;
 use vek::Vec2;
 use veloren_world::{
     CanvasInfo, Land, World,

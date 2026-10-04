@@ -8,7 +8,7 @@ use common::{
 use common_ecs::{Job, Origin, Phase, System};
 use common_net::msg::{CompressedData, ServerGeneral};
 use common_state::TerrainChanges;
-use rayon::prelude::*;
+use tokio_parallel::prelude::*;
 use specs::{Entities, Join, Read, ReadExpect, ReadStorage};
 use std::sync::Arc;
 #[cfg(feature = "worldgen")] use world::World;

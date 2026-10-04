@@ -6,7 +6,7 @@ use common::{
 use criterion::{Criterion, criterion_group, criterion_main};
 use hashbrown::HashMap;
 use rand::prelude::*;
-use rayon::ThreadPoolBuilder;
+use tokio_parallel::ThreadPoolBuilder;
 use std::hint::black_box;
 use vek::{Vec2, Vec3};
 use veloren_world::{

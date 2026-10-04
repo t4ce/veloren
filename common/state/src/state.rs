@@ -32,7 +32,7 @@ use common_ecs::{PhysicsMetrics, SysMetrics};
 use common_net::sync::{WorldSyncExt, interpolation as sync_interp};
 use core::{convert::identity, time::Duration};
 use hashbrown::{HashMap, HashSet};
-use rayon::{ThreadPool, ThreadPoolBuilder};
+use tokio_parallel::{ThreadPool, ThreadPoolBuilder};
 use specs::{
     Component, DispatcherBuilder, Entity as EcsEntity, WorldExt,
     prelude::Resource,
@@ -40,10 +40,7 @@ use specs::{
     storage::{MaskedStorage as EcsMaskedStorage, Storage as EcsStorage},
 };
 use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
+    sync::Arc,
     time::Instant,
 };
 use timer_queue::TimerQueue;
@@ -142,62 +139,14 @@ pub struct State {
 pub type Pools = Arc<ThreadPool>;
 
 impl State {
-    pub fn pools(game_mode: GameMode) -> Pools {
-        let (thread_name_infix, is_main_task) = match game_mode {
-            GameMode::Server => ("s", true),
-            GameMode::Client => ("c", true),
-            // Note: We don't currently use `Singleplayer`. When we do, server-side tasks should be
-            // deprioritised in favour of things that sit on the main thread!
-            GameMode::Singleplayer => ("sp", false),
-        };
+    pub fn pools(_game_mode: GameMode) -> Pools {
+        Arc::new(ThreadPoolBuilder::new().build().unwrap())
+    }
 
-        let is_first_error = Arc::new(AtomicBool::new(true));
-        let set_priority = move || {
-            use thread_priority::*;
-            let priority = if is_main_task {
-                // These threads are critical for the main tick loop, so need a higher priority
-                ThreadPriority::Crossplatform(TryFrom::try_from(50).unwrap())
-            } else {
-                ThreadPriority::Min
-            };
-            let res = cfg_select! {
-                target_os = "linux" => std::thread::current().set_priority_and_policy(
-                    ThreadSchedulePolicy::Realtime(RealtimeThreadSchedulePolicy::RoundRobin),
-                    priority,
-                ),
-                _ => std::thread::current().set_priority(priority),
-            };
-            if let Err(err) = res
-                && is_first_error.swap(false, Ordering::Relaxed)
-            {
-                tracing::warn!(
-                    "Unable to set priority/schedule policy for dispatcher pool thread: {err}"
-                );
-            }
-        };
-
-        Arc::new(
-            ThreadPoolBuilder::new()
-                .num_threads(num_cpus::get().max(common::consts::MIN_RECOMMENDED_RAYON_THREADS))
-                .thread_name(move |i| format!("rayon-{}-{}", thread_name_infix, i))
-                .spawn_handler(|thread| {
-                    let mut b = std::thread::Builder::new();
-                    if let Some(name) = thread.name() {
-                        b = b.name(name.to_owned());
-                    }
-                    if let Some(stack_size) = thread.stack_size() {
-                        b = b.stack_size(stack_size);
-                    }
-                    let set_priority = set_priority.clone();
-                    b.spawn(move || {
-                        set_priority();
-                        thread.run()
-                    })?;
-                    Ok(())
-                })
-                .build()
-                .unwrap(),
-        )
+    /// Share the server's Tokio workers with ECS and background CPU tasks.
+    pub fn pools_on(runtime: Arc<tokio::runtime::Runtime>) -> Pools {
+        ThreadPool::set_shared_runtime(&runtime);
+        Arc::new(ThreadPool::from_runtime(runtime))
     }
 
     /// Create a new `State` in client mode.
@@ -406,9 +355,11 @@ impl State {
         ecs.insert(EntitiesDiedLastTick::default());
         ecs.insert(RtsimGizmos::default());
 
-        let num_cpu = num_cpus::get() as u64;
-        let slow_limit = (num_cpu / 2 + num_cpu / 4).max(1);
-        tracing::trace!(?slow_limit, "Slow Thread limit");
+        let workers = thread_pool.current_num_threads() as u64;
+        // Keep a worker available for networking and tick jobs whenever the
+        // runtime has more than one worker. Slow-job admission remains bounded.
+        let slow_limit = (workers * 3 / 4).max(1).min(workers.saturating_sub(1).max(1));
+        tracing::trace!(?slow_limit, "Slow Tokio task limit");
         ecs.insert(SlowJobPool::new(slow_limit, 10_000, thread_pool));
 
         // TODO: only register on the server

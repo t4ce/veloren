@@ -1,5 +1,5 @@
 use hashbrown::HashMap;
-use rayon::ThreadPool;
+use tokio_parallel::ThreadPool;
 use std::{
     collections::VecDeque,
     sync::{Arc, Mutex},
@@ -36,7 +36,7 @@ use tracing::{error, warn};
 /// # use veloren_common::slowjob::SlowJobPool;
 /// # use std::sync::Arc;
 ///
-/// let threadpool = rayon::ThreadPoolBuilder::new()
+/// let threadpool = tokio_parallel::ThreadPoolBuilder::new()
 ///     .num_threads(16)
 ///     .build()
 ///     .unwrap();
@@ -124,45 +124,10 @@ impl InternalSlowJobPool {
     pub fn new(
         global_limit: u64,
         jobs_metrics_cnt: usize,
-        _threadpool: Arc<ThreadPool>,
+        threadpool: Arc<ThreadPool>,
     ) -> Arc<Mutex<Self>> {
-        // rayon is having a bug where a ECS task could work-steal a slowjob if we use
-        // the same threadpool, which would cause lagspikes we dont want!
-        let threadpool = Arc::new(
-            rayon::ThreadPoolBuilder::new()
-                .num_threads(global_limit as usize)
-                .thread_name(move |i| format!("slowjob-{}", i))
-                .spawn_handler(|thread| {
-                    let mut b = std::thread::Builder::new();
-                    if let Some(name) = thread.name() {
-                        b = b.name(name.to_owned());
-                    }
-                    if let Some(stack_size) = thread.stack_size() {
-                        b = b.stack_size(stack_size);
-                    }
-                    b.spawn(|| {
-                        use thread_priority::*;
-                        let priority =
-                            ThreadPriority::Crossplatform(TryFrom::try_from(15).unwrap());
-                        if let Err(err) = cfg_select! {
-                            target_os = "linux" => std::thread::current().set_priority_and_policy(
-                                ThreadSchedulePolicy::Normal(NormalThreadSchedulePolicy::Batch),
-                                priority,
-                            ),
-                            _ => std::thread::current().set_priority(priority),
-                        } {
-                            tracing::warn!(
-                                "Unable to set priority/schedule policy for slow job pool thread: \
-                                 {err}"
-                            );
-                        }
-                        thread.run()
-                    })?;
-                    Ok(())
-                })
-                .build()
-                .unwrap(),
-        );
+        // Bounded admission remains below; tasks share Tokio workers. Detached
+        // slow jobs are never claimed by an ECS scoped join.
         let link = Arc::new(Mutex::new(Self {
             next_id: 0,
             queue: HashMap::new(),
@@ -456,7 +421,7 @@ mod tests {
         bar: u64,
         baz: u64,
     ) -> SlowJobPool {
-        let threadpool = rayon::ThreadPoolBuilder::new()
+        let threadpool = tokio_parallel::ThreadPoolBuilder::new()
             .num_threads(pool_threads)
             .build()
             .unwrap();
@@ -802,18 +767,18 @@ mod tests {
     #[test]
     fn verify_that_spawn_doesnt_block_par_iter() {
         let threadpool = Arc::new(
-            rayon::ThreadPoolBuilder::new()
+            tokio_parallel::ThreadPoolBuilder::new()
                 .num_threads(20)
                 .build()
                 .unwrap(),
         );
-        let pool = SlowJobPool::new(2, 100, Arc::<rayon::ThreadPool>::clone(&threadpool));
+        let pool = SlowJobPool::new(2, 100, Arc::<tokio_parallel::ThreadPool>::clone(&threadpool));
         pool.configure("BAZ", |_| 2);
         let counter = Arc::new(AtomicU64::new(0));
         let start = Instant::now();
 
         threadpool.install(|| {
-            use rayon::prelude::*;
+            use tokio_parallel::prelude::*;
             (0..100)
                 .into_par_iter()
                 .map(|i| {

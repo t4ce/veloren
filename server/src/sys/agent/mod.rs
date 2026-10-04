@@ -17,7 +17,7 @@ use common::{
 use common_base::prof_span;
 use common_ecs::{Job, Origin, ParMode, Phase, System};
 use rand::rng;
-use rayon::iter::ParallelIterator;
+use tokio_parallel::iter::ParallelIterator;
 use specs::{LendJoin, ParJoin, WriteStorage};
 
 /// This system will allow NPCs to modify their controller
@@ -39,7 +39,7 @@ impl<'a> System<'a> for Sys {
         job: &mut Job<Self>,
         (read_data, events, mut agents, mut controllers): Self::SystemData,
     ) {
-        job.cpu_stats.measure(ParMode::Rayon);
+        job.cpu_stats.measure(ParMode::Tokio);
 
         (
             &read_data.entities,
@@ -76,7 +76,7 @@ impl<'a> System<'a> for Sys {
             .par_join()
             .for_each_init(
                 || {
-                    prof_span!(guard, "agent rayon job");
+                    prof_span!(guard, "agent Tokio job");
                     guard
                 },
                 |_guard,

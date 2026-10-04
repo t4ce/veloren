@@ -17,12 +17,12 @@ pub struct Lod {
 
 impl Lod {
     #[cfg(feature = "worldgen")]
-    pub fn from_world(world: &World, index: IndexRef, threadpool: &rayon::ThreadPool) -> Self {
+    pub fn from_world(world: &World, index: IndexRef, threadpool: &tokio_parallel::ThreadPool) -> Self {
         common_base::prof_span!("Lod::from_world");
         threadpool.install(|| {
             let zone_sz = (world.sim().get_size() + lod::ZONE_SIZE - 1) / lod::ZONE_SIZE;
 
-            use rayon::prelude::*;
+            use tokio_parallel::prelude::*;
             let zones = (0..zone_sz.x)
                 .into_par_iter()
                 .flat_map(|i| (0..zone_sz.y).into_par_iter().map(move |j| (i, j)))
@@ -37,7 +37,7 @@ impl Lod {
     }
 
     #[cfg(not(feature = "worldgen"))]
-    pub fn from_world(_world: &World, _index: IndexRef, _threadpool: &rayon::ThreadPool) -> Self {
+    pub fn from_world(_world: &World, _index: IndexRef, _threadpool: &tokio_parallel::ThreadPool) -> Self {
         Self::default()
     }
 

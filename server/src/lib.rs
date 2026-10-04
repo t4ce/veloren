@@ -176,7 +176,7 @@ pub struct Tick(u64);
 #[derive(Clone)]
 pub struct HwStats {
     hardware_threads: u32,
-    rayon_threads: u32,
+    executor_threads: u32,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -295,7 +295,7 @@ impl Server {
 
         let battlemode_buffer = BattleModeBuffer::default();
 
-        let pools = State::pools(GameMode::Server);
+        let pools = State::pools_on(Arc::clone(&runtime));
 
         // Load plugins before generating the world.
         #[cfg(feature = "plugins")]
@@ -384,7 +384,7 @@ impl Server {
         ));
         state.ecs_mut().insert(HwStats {
             hardware_threads: num_cpus::get() as u32,
-            rayon_threads: num_cpus::get() as u32,
+            executor_threads: pools.current_num_threads() as u32,
         });
         state.ecs_mut().insert(ServerConstants {
             day_cycle_coefficient: settings.day_cycle_coefficient(),

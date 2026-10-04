@@ -20,7 +20,7 @@ use common::{
 };
 use common_ecs::{Job, Origin, ParMode, Phase, System};
 use rand::RngExt;
-use rayon::iter::ParallelIterator;
+use tokio_parallel::iter::ParallelIterator;
 use specs::{
     Entities, LendJoin, ParJoin, Read, ReadExpect, ReadStorage, SystemData, WriteStorage, shred,
 };
@@ -125,7 +125,7 @@ impl<'a> System<'a> for Sys {
                 beam.bezier.end += end_translate;
             });
 
-        job.cpu_stats.measure(ParMode::Rayon);
+        job.cpu_stats.measure(ParMode::Tokio);
 
         // Beams
         // Emitters will append their events when dropped.

@@ -27,7 +27,7 @@ use common::{
 use common_base::prof_span;
 use common_ecs::{Job, Origin, ParMode, Phase, System};
 use rand::RngExt;
-use rayon::iter::ParallelIterator;
+use tokio_parallel::iter::ParallelIterator;
 use specs::{
     Entities, Entity, LendJoin, ParJoin, Read, ReadExpect, ReadStorage, SystemData, WriteStorage,
     shred,
@@ -90,7 +90,7 @@ impl<'a> System<'a> for Sys {
         // Put out underwater campfires. Logically belongs here since this system also
         // removes burning, but campfires don't have healths/stats/energies/buffs, so
         // this needs a separate loop.
-        job.cpu_stats.measure(ParMode::Rayon);
+        job.cpu_stats.measure(ParMode::Tokio);
         let to_put_out_campfires = (
             &read_data.entities,
             &read_data.bodies,

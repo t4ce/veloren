@@ -13,7 +13,7 @@ use kiddo::{
     nearest_neighbour::NearestNeighbour,
 };
 use num_traits::identities::{One, Zero};
-use rayon::{
+use tokio_parallel::{
     ThreadPoolBuilder,
     iter::{IntoParallelIterator, ParallelIterator},
 };
@@ -164,7 +164,7 @@ fn generate(db_path: &str, ymin: Option<i32>, ymax: Option<i32>) -> Result<(), B
 
     let sz = world.sim().get_size();
     let (tx, rx) = mpsc::channel();
-    rayon::spawn(move || {
+    tokio_parallel::spawn(move || {
         let coords: Vec<_> = (ymin.unwrap_or(1)..ymax.unwrap_or(sz.y as i32))
             .flat_map(move |y| {
                 let tx = tx.clone();

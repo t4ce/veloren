@@ -5,7 +5,7 @@ use common::{
 };
 use common_ecs::{Job, Origin, Phase, System};
 use common_net::msg::PingMsg;
-use rayon::prelude::*;
+use tokio_parallel::prelude::*;
 use specs::{Entities, ParJoin, Read, WriteStorage};
 use tracing::{debug, info};
 

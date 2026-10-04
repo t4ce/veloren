@@ -228,7 +228,7 @@ impl Server {
         frontend_events
     }
 
-    pub fn create_event_dispatcher(pools: Arc<rayon::ThreadPool>) -> SendDispatcher<'static> {
+    pub fn create_event_dispatcher(pools: Arc<tokio_parallel::ThreadPool>) -> SendDispatcher<'static> {
         span!(_guard, "create event dispatcher");
         // Run systems to handle events.
         // Create and run a dispatcher for ecs systems.

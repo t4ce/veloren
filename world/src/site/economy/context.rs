@@ -3,7 +3,7 @@ use crate::{
     Index,
     site::economy::{DAYS_PER_MONTH, DAYS_PER_YEAR, Economy, INTER_SITE_TRADE},
 };
-use rayon::prelude::*;
+use tokio_parallel::prelude::*;
 use tracing::{debug, info};
 
 // this is an empty replacement for https://github.com/cpetig/vergleich
@@ -303,7 +303,7 @@ mod tests {
     #[ignore]
     fn test_economy0() {
         execute_with_tracing(Level::INFO, || {
-            let threadpool = rayon::ThreadPoolBuilder::new().build().unwrap();
+            let threadpool = tokio_parallel::ThreadPoolBuilder::new().build().unwrap();
             info!("init");
             let seed = sim::DEFAULT_WORLD_SEED;
             let opts = sim::WorldOpts {
@@ -329,7 +329,7 @@ mod tests {
     #[ignore]
     fn test_economy1() {
         execute_with_tracing(Level::INFO, || {
-            let threadpool = rayon::ThreadPoolBuilder::new().build().unwrap();
+            let threadpool = tokio_parallel::ThreadPoolBuilder::new().build().unwrap();
             info!("init");
             let seed = sim::DEFAULT_WORLD_SEED;
             let opts = sim::WorldOpts {
@@ -493,7 +493,7 @@ mod tests {
         }
 
         execute_with_tracing(Level::ERROR, || {
-            let threadpool = rayon::ThreadPoolBuilder::new().build().unwrap();
+            let threadpool = tokio_parallel::ThreadPoolBuilder::new().build().unwrap();
             info!("init");
             let seed = sim::DEFAULT_WORLD_SEED;
             let opts = sim::WorldOpts {

@@ -2,7 +2,7 @@ use image::{
     ImageBuffer, ImageEncoder,
     codecs::png::{CompressionType, FilterType, PngEncoder},
 };
-use rayon::ThreadPoolBuilder;
+use tokio_parallel::ThreadPoolBuilder;
 use std::{fs::File, io::Write};
 use vek::*;
 use veloren_world::{

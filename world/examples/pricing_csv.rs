@@ -2,7 +2,7 @@ use common::{
     terrain::BiomeKind,
     trade::{Good, SitePrices},
 };
-use rayon::ThreadPoolBuilder;
+use tokio_parallel::ThreadPoolBuilder;
 use rusqlite::{Connection, ToSql};
 use std::error::Error;
 use strum::IntoEnumIterator;

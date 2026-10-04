@@ -6,7 +6,7 @@ const W: usize = 640;
 const H: usize = 480;
 
 fn main() {
-    let threadpool = rayon::ThreadPoolBuilder::new().build().unwrap();
+    let threadpool = tokio_parallel::ThreadPoolBuilder::new().build().unwrap();
     let (world, index) = World::generate(
         0,
         WorldOpts {

@@ -65,7 +65,7 @@ use noise::{
 use num::{Float, Signed, traits::FloatConst};
 use rand::{RngExt, SeedableRng};
 use rand_chacha::ChaChaRng;
-use rayon::prelude::*;
+use tokio_parallel::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
@@ -759,7 +759,7 @@ impl WorldSim {
     pub fn generate(
         seed: u32,
         opts: WorldOpts,
-        threadpool: &rayon::ThreadPool,
+        threadpool: &tokio_parallel::ThreadPool,
         stage_report: &dyn Fn(WorldSimStage),
     ) -> Self {
         prof_span!("WorldSim::generate");

@@ -69,7 +69,7 @@ fn main() -> io::Result<()> {
     let runtime = Arc::new(
         tokio::runtime::Builder::new_multi_thread()
             .enable_all()
-            .worker_threads((num_cpus::get() / 4).max(MIN_RECOMMENDED_TOKIO_THREADS))
+            .worker_threads(num_cpus::get().max(MIN_RECOMMENDED_TOKIO_THREADS))
             .thread_name_fn(|| {
                 static ATOMIC_ID: AtomicUsize = AtomicUsize::new(0);
                 let id = ATOMIC_ID.fetch_add(1, Ordering::SeqCst);
@@ -220,7 +220,7 @@ fn main() -> io::Result<()> {
     {
         execution_heartbeat::phase(execution_heartbeat::READY);
         let pool = Arc::clone(server.state().thread_pool());
-        execution_heartbeat::start_rayon_probe(&runtime, move |probe| pool.spawn(probe));
+        execution_heartbeat::start_executor_probe(&runtime, move |probe| pool.spawn(probe));
     }
     let registry = Arc::clone(server.metrics_registry());
     let chat = server.chat_cache().clone();

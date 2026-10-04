@@ -7,7 +7,7 @@ use common::{
     },
     vol::RectVolSize,
 };
-use rayon::prelude::*;
+use tokio_parallel::prelude::*;
 use std::{f64, io::Write, path::PathBuf, time::SystemTime};
 use tracing::{Level, warn};
 use tracing_subscriber::{
@@ -29,7 +29,7 @@ fn main() {
         .with_max_level(Level::ERROR)
         .with_env_filter(EnvFilter::from_default_env().add_directive(LevelFilter::INFO.into()))
         .init();
-    let threadpool = rayon::ThreadPoolBuilder::new().build().unwrap();
+    let threadpool = tokio_parallel::ThreadPoolBuilder::new().build().unwrap();
 
     // To load a map file of your choice, replace map_file with the name of your map
     // (stored locally in the map directory of your Veloren root), and swap the

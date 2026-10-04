@@ -133,7 +133,7 @@ impl World {
     pub fn generate(
         seed: u32,
         opts: sim::WorldOpts,
-        threadpool: &rayon::ThreadPool,
+        threadpool: &tokio_parallel::ThreadPool,
         report_stage: &(dyn Fn(WorldGenerateStage) + Send + Sync),
     ) -> (Self, IndexOwned) {
         prof_span!("World::generate");
@@ -170,7 +170,7 @@ impl World {
         // TODO
     }
 
-    pub fn get_map_data(&self, index: IndexRef, threadpool: &rayon::ThreadPool) -> WorldMapMsg {
+    pub fn get_map_data(&self, index: IndexRef, threadpool: &tokio_parallel::ThreadPool) -> WorldMapMsg {
         prof_span!("World::get_map_data");
         threadpool.install(|| {
             WorldMapMsg {

@@ -1,5 +1,6 @@
 [workspace]
 resolver = "2"
+exclude = ["vendor/specs", "vendor/shred", "vendor/hibitset", "vendor/hashbrown", "vendor/indexmap"]
 members = [
     "client",
     "client/i18n",
@@ -14,6 +15,7 @@ members = [
     "common/query_server",
     "common/state",
     "common/systems",
+    "common/tokio-parallel",
     "network",
     "network/protocol",
     "rtsim",
@@ -205,7 +207,7 @@ prometheus-hyper = "0.2.1"
 regex = { version = "1.11" }
 rand = { version = "0.10", features = ["alloc"] }
 rand_chacha = { version = "0.10" }
-rayon = { version = "1.5" }
+tokio-parallel = { package = "veloren-tokio-parallel", path = "common/tokio-parallel" }
 ron = { version = "0.12", default-features = false, features = ["std"] }
 rustls = { version = "0.23", default-features = false, features = ["std"] }
 rusqlite = { version = "0.37", features = [
@@ -223,7 +225,7 @@ slotmap = { version = "1.0", features = ["serde"] }
 specs = { version = "0.20", features = ["nightly"] }
 strum = { version = "0.28", features = ["derive"] }
 thread-priority = { version = "3.0.0" }
-tokio = { version = "1.44", default-features = false, features = ["rt"] }
+tokio = { version = "=1.52.3", default-features = false, features = ["rt"] }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3.22", default-features = false, features = [
     "ansi",
@@ -237,7 +239,11 @@ quinn = { version = "0.11" }
 
 [patch.crates-io]
 # until next specs release
-specs = { git = "https://github.com/amethyst/specs.git", rev = "4e2da1df29ee840baa9b936593c45592b7c9ae27" }
+specs = { path = "vendor/specs" }
+shred = { path = "vendor/shred" }
+hibitset = { path = "vendor/hibitset" }
+hashbrown = { path = "vendor/hashbrown" }
+indexmap = { path = "vendor/indexmap" }
 
 # # Uncomment this to use a local fork of winit (for testing purposes)
 # winit = { path = "../winit" }

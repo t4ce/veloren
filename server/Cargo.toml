@@ -71,7 +71,7 @@ serde_json = { workspace = true }
 rand = { workspace = true }
 hashbrown = { workspace = true }
 parking_lot = { version = "0.12" }
-rayon = { workspace = true }
+tokio-parallel = { workspace = true }
 crossbeam-channel = { workspace = true }
 prometheus = { workspace = true }
 portpicker = { git = "https://github.com/xMAC94x/portpicker-rs", rev = "e04e3a61d6c1645c865b36c57877f1f8e48e0cb7" }

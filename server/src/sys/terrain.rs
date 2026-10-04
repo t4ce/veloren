@@ -38,7 +38,7 @@ use common_state::TerrainChanges;
 use comp::Behavior;
 use core::cmp::Reverse;
 use itertools::Itertools;
-use rayon::{iter::Either, prelude::*};
+use tokio_parallel::{iter::Either, prelude::*};
 use specs::{
     Entities, Entity, Join, LendJoin, ParJoin, Read, ReadExpect, ReadStorage, SystemData, Write,
     WriteExpect, WriteStorage, shred, storage::GenericReadStorage,

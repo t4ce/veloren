@@ -132,12 +132,12 @@ impl<'a> System<'a> for Sys {
             .map(|(key, region)| (key, region, deleted_entities.take_deleted_in_region(key)))
             .collect::<Vec<_>>();
 
-        use rayon::iter::{IntoParallelIterator, ParallelIterator};
-        job.cpu_stats.measure(common_ecs::ParMode::Rayon);
+        use tokio_parallel::iter::{IntoParallelIterator, ParallelIterator};
+        job.cpu_stats.measure(common_ecs::ParMode::Tokio);
         common_base::prof_span!(guard, "regions");
         regions_and_deleted_entities.into_par_iter().for_each_init(
             || {
-                common_base::prof_span!(guard, "entity sync rayon job");
+                common_base::prof_span!(guard, "entity sync Tokio job");
                 guard
             },
             |_guard, (key, region, deleted_entities_in_region)| {

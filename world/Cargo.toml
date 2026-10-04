@@ -55,7 +55,7 @@ tracing = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
 arr_macro = "0.2.1"
-rayon = { workspace = true }
+tokio-parallel = { workspace = true }
 serde = { workspace = true }
 ron = { workspace = true }
 # inline_tweak = { workspace = true, features = ["derive"] }

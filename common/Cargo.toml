@@ -51,7 +51,7 @@ lazy_static = { workspace = true }
 num-derive = "0.4.0"
 num-traits = { workspace = true }
 ordered-float = { workspace = true }
-rayon = { workspace = true }
+tokio-parallel = { workspace = true }
 ron = { workspace = true }
 roots = "0.0.8"
 spin_sleep = "1.0"
@@ -81,7 +81,7 @@ clap = { workspace = true, optional = true }
 hashbrown = { workspace = true }
 slab = { workspace = true }
 slotmap = { workspace = true }
-indexmap = { version = "2.7.1", features = ["rayon"] }
+indexmap = { version = "=2.14.2", features = ["rayon"] }
 
 # ECS
 specs = { workspace = true, features = [

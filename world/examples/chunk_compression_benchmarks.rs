@@ -19,7 +19,7 @@ use common_net::msg::compression::{
 use hashbrown::HashMap;
 use image::{ImageBuffer, ImageEncoder};
 use num_traits::cast::FromPrimitive;
-use rayon::ThreadPoolBuilder;
+use tokio_parallel::ThreadPoolBuilder;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,

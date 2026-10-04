@@ -71,7 +71,7 @@ impl<'a> System<'a> for Sys {
         for (name, stat) in common_ecs::gen_stats(
             &state,
             tick_start.0,
-            hw_stats.rayon_threads,
+            hw_stats.executor_threads,
             hw_stats.hardware_threads,
         ) {
             export_ecs

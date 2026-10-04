@@ -49,7 +49,7 @@ impl<'a> System<'a> for Sys {
             .filter(|(e, _, _, _)| Some(e) != player.as_ref())
             .for_each_init(
                 || {
-                    prof_span!(guard, "interpolate pos rayon job");
+                    prof_span!(guard, "interpolate pos Tokio job");
                     guard
                 },
                 |_guard, (_, pos, interp, vel)| {
@@ -61,7 +61,7 @@ impl<'a> System<'a> for Sys {
             .filter(|(e, _, _)| Some(e) != player.as_ref())
             .for_each_init(
                 || {
-                    prof_span!(guard, "interpolate vel rayon job");
+                    prof_span!(guard, "interpolate vel Tokio job");
                     guard
                 },
                 |_guard, (_, vel, interp)| {
@@ -73,7 +73,7 @@ impl<'a> System<'a> for Sys {
             .filter(|(e, _, _)| Some(e) != player.as_ref())
             .for_each_init(
                 || {
-                    prof_span!(guard, "interpolate ori rayon job");
+                    prof_span!(guard, "interpolate ori Tokio job");
                     guard
                 },
                 |_guard, (_, ori, interp)| {

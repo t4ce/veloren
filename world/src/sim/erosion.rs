@@ -13,7 +13,7 @@ use itertools::izip;
 use noise::NoiseFn;
 use num::{Float, Zero};
 use ordered_float::{FloatCore, NotNan};
-use rayon::prelude::*;
+use tokio_parallel::prelude::*;
 use std::{
     cmp::{Ordering, Reverse},
     collections::BinaryHeap,
@@ -722,7 +722,7 @@ fn erode(
     // scaling factors
     height_scale: impl Fn(f32) -> Alt + Sync,
     k_da_scale: impl Fn(f64) -> f64,
-    threadpool: &rayon::ThreadPool,
+    threadpool: &tokio_parallel::ThreadPool,
 ) {
     let compute_stats = true;
     debug!("Done draining...");
@@ -2340,7 +2340,7 @@ pub fn get_multi_rec<F: fmt::Debug + Float + Sync + Into<Compute>>(
     dx: Compute,
     dy: Compute,
     _maxh: F,
-    threadpool: &rayon::ThreadPool,
+    threadpool: &tokio_parallel::ThreadPool,
 ) -> (Box<[u8]>, Box<[u32]>, Box<[Computex8]>) {
     let nn = nx * ny;
     let dxdy = Vec2::new(dx, dy);
@@ -2542,7 +2542,7 @@ pub fn do_erosion(
     height_scale: impl Fn(f32) -> Alt + Sync,
     k_d_scale: f64,
     k_da_scale: impl Fn(f64) -> f64,
-    threadpool: &rayon::ThreadPool,
+    threadpool: &tokio_parallel::ThreadPool,
     report_progress: &mut dyn FnMut(f64),
 ) -> (Box<[Alt]>, Box<[Alt]> /* , Box<[Alt]> */) {
     debug!("Initializing erosion arrays...");

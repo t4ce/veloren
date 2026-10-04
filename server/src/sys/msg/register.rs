@@ -23,7 +23,7 @@ use common_net::msg::{
 };
 use hashbrown::{HashMap, hash_map};
 use itertools::Either;
-use rayon::prelude::*;
+use tokio_parallel::prelude::*;
 use specs::{
     Entities, Join, LendJoin, ParJoin, Read, ReadExpect, ReadStorage, SystemData, WriteExpect,
     WriteStorage, shred,

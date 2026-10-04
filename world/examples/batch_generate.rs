@@ -20,7 +20,7 @@ use common::{
 use image::{DynamicImage, GenericImage, ImageEncoder, codecs::png::PngEncoder};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use rand::{RngExt, rng};
-use rayon::ThreadPool;
+use tokio_parallel::ThreadPool;
 use serde::{Deserialize, Serialize};
 use tracing::{Level, Span, debug, error, info, info_span};
 use tracing_subscriber::EnvFilter;
@@ -271,7 +271,7 @@ fn do_regenerate(
     };
 
     let span = info_span!("Generating map", map = ?config);
-    let pool = rayon::ThreadPoolBuilder::new().build().unwrap();
+    let pool = tokio_parallel::ThreadPoolBuilder::new().build().unwrap();
 
     generate_one(
         config.seed,
@@ -347,7 +347,7 @@ fn do_batch_generate(
                 let gen_opts = config.gen_rand();
                 let base_path = maps_path.join(seed.to_string());
 
-                let threadpool = rayon::ThreadPoolBuilder::new().build().unwrap();
+                let threadpool = tokio_parallel::ThreadPoolBuilder::new().build().unwrap();
 
                 info!("Starting world generation");
                 generate_one(

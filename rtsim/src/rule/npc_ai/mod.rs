@@ -74,7 +74,7 @@ use fxhash::FxHasher64;
 use itertools::{Either, Itertools};
 use rand::{prelude::*, seq::IndexedRandom};
 use rand_chacha::ChaChaRng;
-use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
+use tokio_parallel::iter::{IntoParallelRefMutIterator, ParallelIterator};
 use vek::*;
 use world::{
     IndexRef, World,

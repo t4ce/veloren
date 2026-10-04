@@ -8,7 +8,7 @@ use common::{
     terrain::TerrainChunk,
 };
 use hashbrown::{HashMap, hash_map::Entry};
-use rayon::iter::ParallelIterator;
+use tokio_parallel::iter::ParallelIterator;
 use specs::Entity as EcsEntity;
 use std::sync::{
     Arc,
@@ -102,7 +102,7 @@ impl ChunkGenerator {
         self.pending_chunks.keys().copied()
     }
 
-    pub fn par_pending_chunks(&self) -> impl rayon::iter::ParallelIterator<Item = Vec2<i32>> + '_ {
+    pub fn par_pending_chunks(&self) -> impl tokio_parallel::iter::ParallelIterator<Item = Vec2<i32>> + '_ {
         self.pending_chunks.par_keys().copied()
     }
 

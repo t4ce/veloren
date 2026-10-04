@@ -22,7 +22,7 @@ use common::{
 };
 use common_base::{prof_span, span};
 use common_ecs::{Job, Origin, ParMode, Phase, PhysicsMetrics, System};
-use rayon::iter::ParallelIterator;
+use tokio_parallel::iter::ParallelIterator;
 use specs::{
     Entities, Join, LendJoin, ParJoin, Read, ReadExpect, ReadStorage, SystemData, Write,
     WriteExpect, WriteStorage, shred,
@@ -362,7 +362,7 @@ impl PhysicsData<'_> {
 
     fn apply_pushback(&mut self, job: &mut Job<Sys>, spatial_grid: &SpatialGrid) {
         span!(_guard, "Apply pushback");
-        job.cpu_stats.measure(ParMode::Rayon);
+        job.cpu_stats.measure(ParMode::Tokio);
         let &mut PhysicsData {
             ref read,
             ref mut write,
@@ -389,7 +389,7 @@ impl PhysicsData<'_> {
             .par_join()
             .map_init(
                 || {
-                    prof_span!(guard, "physics e<>e rayon job");
+                    prof_span!(guard, "physics e<>e Tokio job");
                     guard
                 },
                 |_guard,
@@ -724,7 +724,7 @@ impl PhysicsData<'_> {
             .par_join()
             .for_each_init(
                 || {
-                    prof_span!(guard, "velocity update rayon job");
+                    prof_span!(guard, "velocity update Tokio job");
                     guard
                 },
                 |_guard,
@@ -841,7 +841,7 @@ impl PhysicsData<'_> {
             &write.orientations,
         );
         span!(guard, "Apply terrain collision");
-        job.cpu_stats.measure(ParMode::Rayon);
+        job.cpu_stats.measure(ParMode::Tokio);
         let (land_on_grounds, outcomes) = (
             &read.entities,
             read.scales.maybe(),
@@ -862,7 +862,7 @@ impl PhysicsData<'_> {
             .filter(|tuple| tuple.3.is_voxel() == terrain_like_entities)
             .map_init(
                 || {
-                    prof_span!(guard, "physics e<>t rayon job");
+                    prof_span!(guard, "physics e<>t Tokio job");
                     guard
                 },
                 |_guard,

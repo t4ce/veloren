@@ -157,8 +157,8 @@ impl BloomPipelines {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Bloom pipelines layout"),
-                push_constant_ranges: &[],
-                bind_group_layouts: &[&layout.layout],
+                immediate_size: 0,
+                bind_group_layouts: &[Some(&layout.layout)],
             });
 
         let create_pipeline = |label, fs_module, blend| {
@@ -196,7 +196,7 @@ impl BloomPipelines {
                     })],
                     compilation_options: Default::default(),
                 }),
-                multiview: None,
+                multiview_mask: None,
                 cache: None,
             })
         };

@@ -85,7 +85,7 @@ impl Texture {
             address_mode_w: address_mode.unwrap_or(wgpu::AddressMode::ClampToEdge),
             mag_filter: filter_method.unwrap_or(wgpu::FilterMode::Nearest),
             min_filter: filter_method.unwrap_or(wgpu::FilterMode::Nearest),
-            mipmap_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
             ..Default::default()
         };
 
@@ -99,6 +99,7 @@ impl Texture {
             mip_level_count: None,
             base_array_layer: 0,
             array_layer_count: None,
+            swizzle: wgpu::TextureComponentSwizzle::default(),
         });
 
         Ok(Self {
@@ -141,7 +142,7 @@ impl Texture {
             address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
             ..Default::default()
         };
 
@@ -155,6 +156,7 @@ impl Texture {
             mip_level_count: None,
             base_array_layer: 0,
             array_layer_count: None,
+            swizzle: wgpu::TextureComponentSwizzle::default(),
         };
 
         let texture = Self::new_raw(device, &tex_info, &view_info, &sampler_info);

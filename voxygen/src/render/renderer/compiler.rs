@@ -144,7 +144,7 @@ impl Compiler for WgpuCompiler {
 
         let label = name;
 
-        device.push_error_scope(wgpu::ErrorFilter::Validation);
+        let error_scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
 
         // replace all `includes` recursivly
         let mut source = Cow::Borrowed(source);
@@ -173,7 +173,7 @@ impl Compiler for WgpuCompiler {
 
         let rt = tokio::runtime::Runtime::new().unwrap();
 
-        if let Some(error) = rt.block_on(device.pop_error_scope()) {
+        if let Some(error) = rt.block_on(error_scope.pop()) {
             Err(RenderError::ShaderWgpuError(label.to_owned(), error))
         } else {
             Ok(shader)

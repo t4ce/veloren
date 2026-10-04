@@ -80,11 +80,11 @@ impl DebugPipeline {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Debug pipeline layout"),
-                push_constant_ranges: &[],
+                immediate_size: 0,
                 bind_group_layouts: &[
-                    &global_layouts.globals,
-                    &global_layouts.shadow_textures,
-                    &layout.locals,
+                    Some(&global_layouts.globals),
+                    Some(&global_layouts.shadow_textures),
+                    Some(&layout.locals),
                 ],
             });
 
@@ -96,7 +96,7 @@ impl DebugPipeline {
             vertex: wgpu::VertexState {
                 module: vs_module,
                 entry_point: Some("main"),
-                buffers: &[Vertex::desc()],
+                buffers: &[Some(Vertex::desc())],
                 compilation_options: Default::default(),
             },
             primitive: wgpu::PrimitiveState {
@@ -110,8 +110,8 @@ impl DebugPipeline {
             },
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: wgpu::TextureFormat::Depth32Float,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(wgpu::CompareFunction::GreaterEqual),
                 stencil: wgpu::StencilState {
                     front: wgpu::StencilFaceState::IGNORE,
                     back: wgpu::StencilFaceState::IGNORE,
@@ -146,7 +146,7 @@ impl DebugPipeline {
                 ],
                 compilation_options: Default::default(),
             }),
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 

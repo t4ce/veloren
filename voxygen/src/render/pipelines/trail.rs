@@ -70,8 +70,11 @@ impl TrailPipeline {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Trail pipeline layout"),
-                push_constant_ranges: &[],
-                bind_group_layouts: &[&global_layout.globals, &global_layout.shadow_textures],
+                immediate_size: 0,
+                bind_group_layouts: &[
+                    Some(&global_layout.globals),
+                    Some(&global_layout.shadow_textures),
+                ],
             });
 
         let samples = aa_mode.samples();
@@ -82,7 +85,7 @@ impl TrailPipeline {
             vertex: wgpu::VertexState {
                 module: vs_module,
                 entry_point: Some("main"),
-                buffers: &[Vertex::desc()],
+                buffers: &[Some(Vertex::desc())],
                 compilation_options: Default::default(),
             },
             primitive: wgpu::PrimitiveState {
@@ -96,8 +99,8 @@ impl TrailPipeline {
             },
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: wgpu::TextureFormat::Depth32Float,
-                depth_write_enabled: false,
-                depth_compare: wgpu::CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(false),
+                depth_compare: Some(wgpu::CompareFunction::GreaterEqual),
                 stencil: wgpu::StencilState {
                     front: wgpu::StencilFaceState::IGNORE,
                     back: wgpu::StencilFaceState::IGNORE,
@@ -136,7 +139,7 @@ impl TrailPipeline {
                 })],
                 compilation_options: Default::default(),
             }),
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 

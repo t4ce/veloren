@@ -57,6 +57,7 @@ impl TakeScreenshot {
             mip_level_count: None,
             base_array_layer: 0,
             array_layer_count: None,
+            swizzle: wgpu::TextureComponentSwizzle::default(),
         });
 
         let bind_group = blit_layout.bind(device, &view, sampler);
@@ -168,7 +169,13 @@ impl TakeScreenshot {
         let rows = match result {
             Ok(()) => {
                 // Copy to a Vec
-                padded_buffer = buffer_slice.get_mapped_range();
+                padded_buffer = match buffer_slice.get_mapped_range() {
+                    Ok(view) => view,
+                    Err(err) => {
+                        error!(?err, "Failed to access mapped screenshot buffer");
+                        return;
+                    },
+                };
                 padded_buffer
                     .chunks(padded_bytes_per_row as usize)
                     .map(|padded_chunk| {

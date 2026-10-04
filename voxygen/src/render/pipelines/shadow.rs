@@ -96,8 +96,8 @@ impl ShadowFigurePipeline {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Directed figure shadow pipeline layout"),
-                push_constant_ranges: &[],
-                bind_group_layouts: &[&global_layout.globals, &figure_layout.locals],
+                immediate_size: 0,
+                bind_group_layouts: &[Some(&global_layout.globals), Some(&figure_layout.locals)],
             });
 
         let samples = aa_mode.samples();
@@ -108,7 +108,7 @@ impl ShadowFigurePipeline {
             vertex: wgpu::VertexState {
                 module: vs_module,
                 entry_point: Some("main"),
-                buffers: &[TerrainVertex::desc()],
+                buffers: &[Some(TerrainVertex::desc())],
                 compilation_options: Default::default(),
             },
             primitive: wgpu::PrimitiveState {
@@ -122,8 +122,8 @@ impl ShadowFigurePipeline {
             },
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: wgpu::TextureFormat::Depth24Plus,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(wgpu::CompareFunction::Less),
                 stencil: wgpu::StencilState {
                     front: wgpu::StencilFaceState::IGNORE,
                     back: wgpu::StencilFaceState::IGNORE,
@@ -142,7 +142,7 @@ impl ShadowFigurePipeline {
                 alpha_to_coverage_enabled: false,
             },
             fragment: None,
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 
@@ -167,8 +167,8 @@ impl ShadowPipeline {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Directed shadow pipeline layout"),
-                push_constant_ranges: &[],
-                bind_group_layouts: &[&global_layout.globals, &terrain_layout.locals],
+                immediate_size: 0,
+                bind_group_layouts: &[Some(&global_layout.globals), Some(&terrain_layout.locals)],
             });
 
         let samples = aa_mode.samples();
@@ -179,7 +179,7 @@ impl ShadowPipeline {
             vertex: wgpu::VertexState {
                 module: vs_module,
                 entry_point: Some("main"),
-                buffers: &[TerrainVertex::desc()],
+                buffers: &[Some(TerrainVertex::desc())],
                 compilation_options: Default::default(),
             },
             primitive: wgpu::PrimitiveState {
@@ -193,8 +193,8 @@ impl ShadowPipeline {
             },
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: wgpu::TextureFormat::Depth24Plus,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(wgpu::CompareFunction::Less),
                 stencil: wgpu::StencilState {
                     front: wgpu::StencilFaceState::IGNORE,
                     back: wgpu::StencilFaceState::IGNORE,
@@ -213,7 +213,7 @@ impl ShadowPipeline {
                 alpha_to_coverage_enabled: false,
             },
             fragment: None,
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 
@@ -237,11 +237,8 @@ impl PointShadowPipeline {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Point shadow pipeline layout"),
-                push_constant_ranges: &[wgpu::PushConstantRange {
-                    stages: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                    range: 0..64,
-                }],
-                bind_group_layouts: &[&global_layout.globals, &terrain_layout.locals],
+                immediate_size: 64,
+                bind_group_layouts: &[Some(&global_layout.globals), Some(&terrain_layout.locals)],
             });
 
         let samples = aa_mode.samples();
@@ -252,7 +249,7 @@ impl PointShadowPipeline {
             vertex: wgpu::VertexState {
                 module: vs_module,
                 entry_point: Some("main"),
-                buffers: &[TerrainVertex::desc()],
+                buffers: &[Some(TerrainVertex::desc())],
                 compilation_options: Default::default(),
             },
             primitive: wgpu::PrimitiveState {
@@ -266,8 +263,8 @@ impl PointShadowPipeline {
             },
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: wgpu::TextureFormat::Depth24Plus,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(wgpu::CompareFunction::Less),
                 stencil: wgpu::StencilState {
                     front: wgpu::StencilFaceState::IGNORE,
                     back: wgpu::StencilFaceState::IGNORE,
@@ -286,7 +283,7 @@ impl PointShadowPipeline {
                 alpha_to_coverage_enabled: false,
             },
             fragment: None,
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 
@@ -311,8 +308,8 @@ impl ShadowDebugPipeline {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Directed shadow debug pipeline layout"),
-                push_constant_ranges: &[],
-                bind_group_layouts: &[&global_layout.globals, &debug_layout.locals],
+                immediate_size: 0,
+                bind_group_layouts: &[Some(&global_layout.globals), Some(&debug_layout.locals)],
             });
 
         let samples = aa_mode.samples();
@@ -323,7 +320,7 @@ impl ShadowDebugPipeline {
             vertex: wgpu::VertexState {
                 module: vs_module,
                 entry_point: Some("main"),
-                buffers: &[DebugVertex::desc()],
+                buffers: &[Some(DebugVertex::desc())],
                 compilation_options: Default::default(),
             },
             primitive: wgpu::PrimitiveState {
@@ -337,8 +334,8 @@ impl ShadowDebugPipeline {
             },
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: wgpu::TextureFormat::Depth24Plus,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(wgpu::CompareFunction::Less),
                 stencil: wgpu::StencilState {
                     front: wgpu::StencilFaceState::IGNORE,
                     back: wgpu::StencilFaceState::IGNORE,
@@ -357,7 +354,7 @@ impl ShadowDebugPipeline {
                 alpha_to_coverage_enabled: false,
             },
             fragment: None,
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 

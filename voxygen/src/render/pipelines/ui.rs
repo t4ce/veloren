@@ -275,8 +275,12 @@ impl UiPipeline {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Ui pipeline layout"),
-                push_constant_ranges: &[],
-                bind_group_layouts: &[&global_layout.globals, &layout.locals, &layout.texture],
+                immediate_size: 0,
+                bind_group_layouts: &[
+                    Some(&global_layout.globals),
+                    Some(&layout.locals),
+                    Some(&layout.texture),
+                ],
             });
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -285,7 +289,7 @@ impl UiPipeline {
             vertex: wgpu::VertexState {
                 module: vs_module,
                 entry_point: Some("main"),
-                buffers: &[Vertex::desc()],
+                buffers: &[Some(Vertex::desc())],
                 compilation_options: Default::default(),
             },
             primitive: wgpu::PrimitiveState {
@@ -324,7 +328,7 @@ impl UiPipeline {
                 })],
                 compilation_options: Default::default(),
             }),
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 
@@ -503,11 +507,8 @@ impl PremultiplyAlphaPipeline {
     ) -> Self {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Premultiply alpha pipeline layout"),
-            bind_group_layouts: &[&layout.source_texture],
-            push_constant_ranges: &[wgpu::PushConstantRange {
-                stages: wgpu::ShaderStages::VERTEX,
-                range: 0..core::mem::size_of::<PremultiplyAlphaParams>() as u32,
-            }],
+            bind_group_layouts: &[Some(&layout.source_texture)],
+            immediate_size: core::mem::size_of::<PremultiplyAlphaParams>() as u32,
         });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -540,7 +541,7 @@ impl PremultiplyAlphaPipeline {
                 })],
                 compilation_options: Default::default(),
             }),
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 
@@ -630,6 +631,7 @@ impl PremultiplyUpload {
             mip_level_count: None,
             base_array_layer: 0,
             array_layer_count: None,
+            swizzle: wgpu::TextureComponentSwizzle::default(),
         });
         let source_bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,

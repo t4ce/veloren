@@ -68,6 +68,7 @@ impl RainOcclusionMap {
                 mip_level_count: None,
                 base_array_layer: 0,
                 array_layer_count: None,
+                swizzle: wgpu::TextureComponentSwizzle::default(),
             };
 
             let sampler_info = wgpu::SamplerDescriptor {
@@ -77,7 +78,7 @@ impl RainOcclusionMap {
                 address_mode_w: wgpu::AddressMode::ClampToEdge,
                 mag_filter: wgpu::FilterMode::Linear,
                 min_filter: wgpu::FilterMode::Linear,
-                mipmap_filter: wgpu::FilterMode::Nearest,
+                mipmap_filter: wgpu::MipmapFilterMode::Nearest,
                 compare: Some(wgpu::CompareFunction::LessEqual),
                 ..Default::default()
             };
@@ -103,6 +104,7 @@ impl RainOcclusionMap {
             }),
             timestamp_writes: None,
             occlusion_query_set: None,
+            multiview_mask: None,
         });
 
         queue.submit(std::iter::once(encoder.finish()));
@@ -194,6 +196,7 @@ impl RainOcclusionMap {
             mip_level_count: None,
             base_array_layer: 0,
             array_layer_count: None,
+            swizzle: wgpu::TextureComponentSwizzle::default(),
         };
 
         let sampler_info = wgpu::SamplerDescriptor {
@@ -203,7 +206,7 @@ impl RainOcclusionMap {
             address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
             compare: Some(wgpu::CompareFunction::LessEqual),
             ..Default::default()
         };

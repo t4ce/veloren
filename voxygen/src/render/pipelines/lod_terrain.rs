@@ -94,7 +94,7 @@ impl LodData {
                 address_mode_w: wgpu::AddressMode::ClampToEdge,
                 mag_filter: filter,
                 min_filter: filter,
-                mipmap_filter: wgpu::FilterMode::Nearest,
+                mipmap_filter: wgpu::MipmapFilterMode::Nearest,
                 border_color: Some(wgpu::SamplerBorderColor::TransparentBlack),
                 ..Default::default()
             };
@@ -109,6 +109,7 @@ impl LodData {
                 mip_level_count: None,
                 base_array_layer: 0,
                 array_layer_count: None,
+                swizzle: wgpu::TextureComponentSwizzle::default(),
             };
 
             renderer.create_texture_with_data_raw(
@@ -162,7 +163,7 @@ impl LodData {
                 address_mode_w: wgpu::AddressMode::ClampToBorder,
                 mag_filter: wgpu::FilterMode::Linear,
                 min_filter: wgpu::FilterMode::Linear,
-                mipmap_filter: wgpu::FilterMode::Nearest,
+                mipmap_filter: wgpu::MipmapFilterMode::Nearest,
                 border_color: Some(wgpu::SamplerBorderColor::TransparentBlack),
                 ..Default::default()
             };
@@ -177,6 +178,7 @@ impl LodData {
                 mip_level_count: None,
                 base_array_layer: 0,
                 array_layer_count: None,
+                swizzle: wgpu::TextureComponentSwizzle::default(),
             };
 
             renderer.create_texture_with_data_raw(
@@ -212,8 +214,11 @@ impl LodTerrainPipeline {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Lod terrain pipeline layout"),
-                push_constant_ranges: &[],
-                bind_group_layouts: &[&global_layout.globals, &global_layout.shadow_textures],
+                immediate_size: 0,
+                bind_group_layouts: &[
+                    Some(&global_layout.globals),
+                    Some(&global_layout.shadow_textures),
+                ],
             });
 
         let samples = pipeline_modes.aa.samples();
@@ -224,7 +229,7 @@ impl LodTerrainPipeline {
             vertex: wgpu::VertexState {
                 module: vs_module,
                 entry_point: Some("main"),
-                buffers: &[Vertex::desc()],
+                buffers: &[Some(Vertex::desc())],
                 compilation_options: Default::default(),
             },
             primitive: wgpu::PrimitiveState {
@@ -245,8 +250,8 @@ impl LodTerrainPipeline {
             },
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: wgpu::TextureFormat::Depth32Float,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(wgpu::CompareFunction::GreaterEqual),
                 stencil: wgpu::StencilState {
                     front: wgpu::StencilFaceState::IGNORE,
                     back: wgpu::StencilFaceState::IGNORE,
@@ -281,7 +286,7 @@ impl LodTerrainPipeline {
                 ],
                 compilation_options: Default::default(),
             }),
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 

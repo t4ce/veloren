@@ -3,7 +3,6 @@
 pub enum RenderError {
     RequestDeviceError(wgpu::RequestDeviceError),
     MappingError(wgpu::BufferAsyncError),
-    SurfaceError(wgpu::SurfaceError),
     CustomError(String),
     CouldNotFindAdapter,
     RequestAdapterError(wgpu::RequestAdapterError),
@@ -20,11 +19,6 @@ impl fmt::Debug for RenderError {
                 f.debug_tuple("RequestDeviceError").field(err).finish()
             },
             Self::MappingError(err) => f.debug_tuple("MappingError").field(err).finish(),
-            Self::SurfaceError(err) => f
-                .debug_tuple("SurfaceError")
-                // Use Display formatting for this error since they have nice descriptions
-                .field(&format!("{}", err))
-                .finish(),
             Self::CustomError(err) => f.debug_tuple("CustomError").field(err).finish(),
             Self::CouldNotFindAdapter => f.debug_tuple("CouldNotFindAdapter").finish(),
             Self::RequestAdapterError(err) => f
@@ -56,10 +50,6 @@ impl From<wgpu::RequestDeviceError> for RenderError {
 
 impl From<wgpu::BufferAsyncError> for RenderError {
     fn from(err: wgpu::BufferAsyncError) -> Self { Self::MappingError(err) }
-}
-
-impl From<wgpu::SurfaceError> for RenderError {
-    fn from(err: wgpu::SurfaceError) -> Self { Self::SurfaceError(err) }
 }
 
 impl From<wgpu::RequestAdapterError> for RenderError {

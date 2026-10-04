@@ -290,6 +290,7 @@ impl Window {
 
         let renderer = Renderer::new(
             Arc::clone(&window),
+            event_loop.owned_display_handle(),
             settings.graphics.render_mode.clone(),
             runtime,
         )?;

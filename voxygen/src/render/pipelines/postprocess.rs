@@ -206,8 +206,8 @@ impl PostProcessPipeline {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Post process pipeline layout"),
-                push_constant_ranges: &[],
-                bind_group_layouts: &[&global_layout.globals, &layout.layout],
+                immediate_size: 0,
+                bind_group_layouts: &[Some(&global_layout.globals), Some(&layout.layout)],
             });
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -244,7 +244,7 @@ impl PostProcessPipeline {
                 })],
                 compilation_options: Default::default(),
             }),
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 

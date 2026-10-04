@@ -75,8 +75,8 @@ impl BlitPipeline {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Blit pipeline layout"),
-                push_constant_ranges: &[],
-                bind_group_layouts: &[&layout.layout],
+                immediate_size: 0,
+                bind_group_layouts: &[Some(&layout.layout)],
             });
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -113,7 +113,7 @@ impl BlitPipeline {
                 })],
                 compilation_options: Default::default(),
             }),
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 

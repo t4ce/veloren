@@ -255,6 +255,7 @@ impl<'frame> Drawer<'frame> {
                     }),
                     timestamp_writes: None,
                     occlusion_query_set: None,
+                    multiview_mask: None,
                 },
             );
 
@@ -293,6 +294,7 @@ impl<'frame> Drawer<'frame> {
                         }),
                         timestamp_writes: None,
                         occlusion_query_set: None,
+                        multiview_mask: None,
                     });
 
             render_pass.set_bind_group(0, &self.globals.bind_group, &[]);
@@ -348,6 +350,7 @@ impl<'frame> Drawer<'frame> {
                     }),
                     timestamp_writes: None,
                     occlusion_query_set: None,
+                    multiview_mask: None,
                 });
 
         render_pass.set_bind_group(0, &self.globals.bind_group, &[]);
@@ -382,6 +385,7 @@ impl<'frame> Drawer<'frame> {
                     depth_stencil_attachment: None,
                     timestamp_writes: None,
                     occlusion_query_set: None,
+                    multiview_mask: None,
                 });
 
         render_pass.set_bind_group(0, &self.globals.bind_group, &[]);
@@ -422,6 +426,7 @@ impl<'frame> Drawer<'frame> {
                     }),
                     timestamp_writes: None,
                     occlusion_query_set: None,
+                    multiview_mask: None,
                 });
 
         render_pass.set_bind_group(0, &self.globals.bind_group, &[]);
@@ -472,6 +477,7 @@ impl<'frame> Drawer<'frame> {
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
                 occlusion_query_set: None,
+                multiview_mask: None,
             });
 
             render_pass.set_bind_group(0, bind, &[]);
@@ -560,13 +566,14 @@ impl<'frame> Drawer<'frame> {
                         depth_stencil_attachment: None,
                         timestamp_writes: None,
                         occlusion_query_set: None,
+                        multiview_mask: None,
                     });
             render_pass.set_pipeline(&premultiply_alpha.pipeline);
             for upload in &uploads {
                 let (source_bind_group, push_constant_data) = upload.draw_data(&target_texture);
                 let bytes = bytemuck::bytes_of(&push_constant_data);
                 render_pass.set_bind_group(0, source_bind_group, &[]);
-                render_pass.set_push_constants(wgpu::ShaderStages::VERTEX, 0, bytes);
+                render_pass.set_immediates(0, bytes);
                 render_pass.draw(0..6, 0..1);
             }
         }
@@ -600,6 +607,7 @@ impl<'frame> Drawer<'frame> {
                     depth_stencil_attachment: None,
                     timestamp_writes: None,
                     occlusion_query_set: None,
+                    multiview_mask: None,
                 });
 
         render_pass.set_bind_group(0, &self.globals.bind_group, &[]);
@@ -630,13 +638,15 @@ impl<'frame> Drawer<'frame> {
             pixels_per_point: scale_factor,
         };
 
-        for (id, delta) in output.textures_delta.set.iter() {
-            self.borrow.egui_renderer.update_texture(
-                self.borrow.device,
-                self.borrow.queue,
-                *id,
-                delta,
-            );
+        for (id, deltas) in &output.textures_delta.set {
+            for delta in deltas {
+                self.borrow.egui_renderer.update_texture(
+                    self.borrow.device,
+                    self.borrow.queue,
+                    *id,
+                    delta,
+                );
+            }
         }
 
         // PaintCallback is not used to my knowledge so this should always be empty
@@ -669,6 +679,7 @@ impl<'frame> Drawer<'frame> {
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
                 occlusion_query_set: None,
+                multiview_mask: None,
             })
             .forget_lifetime();
 
@@ -717,6 +728,7 @@ impl<'frame> Drawer<'frame> {
                             mip_level_count: None,
                             base_array_layer: face,
                             array_layer_count: Some(1),
+                            swizzle: wgpu::TextureComponentSwizzle::default(),
                         });
 
                 let label = format!("point shadow face-{} pass", face);
@@ -734,6 +746,7 @@ impl<'frame> Drawer<'frame> {
                         }),
                         timestamp_writes: None,
                         occlusion_query_set: None,
+                        multiview_mask: None,
                     });
 
                 render_pass.set_pipeline(&shadow_renderer.point_pipeline.pipeline);
@@ -741,8 +754,7 @@ impl<'frame> Drawer<'frame> {
                 render_pass.set_bind_group(0, &self.globals.bind_group, &[]);
 
                 (0../*20*/1).for_each(|point_light| {
-                    render_pass.set_push_constants(
-                        wgpu::ShaderStages::VERTEX_FRAGMENT,
+                    render_pass.set_immediates(
                         0,
                         &data[(6 * (point_light + 1) * STRIDE + face as usize * STRIDE)
                             ..(6 * (point_light + 1) * STRIDE + (face + 1) as usize * STRIDE)],
@@ -784,6 +796,7 @@ impl<'frame> Drawer<'frame> {
                     }),
                     timestamp_writes: None,
                     occlusion_query_set: None,
+                    multiview_mask: None,
                 },
             );
 
@@ -803,6 +816,7 @@ impl<'frame> Drawer<'frame> {
                             mip_level_count: None,
                             base_array_layer: face,
                             array_layer_count: Some(1),
+                            swizzle: wgpu::TextureComponentSwizzle::default(),
                         });
 
                 let label = format!("clear point shadow face-{} pass", face);
@@ -821,6 +835,7 @@ impl<'frame> Drawer<'frame> {
                         }),
                         timestamp_writes: None,
                         occlusion_query_set: None,
+                        multiview_mask: None,
                     });
             }
         }
@@ -854,6 +869,7 @@ impl Drop for Drawer<'_> {
                         depth_stencil_attachment: None,
                         timestamp_writes: None,
                         occlusion_query_set: None,
+                        multiview_mask: None,
                     },
                 );
                 render_pass.set_pipeline(&blit.pipeline);
@@ -876,7 +892,9 @@ impl Drop for Drawer<'_> {
         if let Some(f) = download_and_handle_screenshot {
             f();
         }
-        self.surface_texture.take().unwrap().present();
+        self.borrow
+            .queue
+            .present(self.surface_texture.take().unwrap());
 
         profiler
             .end_frame()

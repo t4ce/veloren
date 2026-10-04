@@ -721,6 +721,7 @@ impl<V: RectRasterableVol> Terrain<V> {
                         mip_level_count: None,
                         base_array_layer: 0,
                         array_layer_count: None,
+                        swizzle: wgpu::TextureComponentSwizzle::default(),
                     },
                     &wgpu::SamplerDescriptor {
                         label: Some("Terrain atlas sampler"),
@@ -729,7 +730,7 @@ impl<V: RectRasterableVol> Terrain<V> {
                         address_mode_w: wgpu::AddressMode::ClampToEdge,
                         mag_filter: wgpu::FilterMode::Nearest,
                         min_filter: wgpu::FilterMode::Nearest,
-                        mipmap_filter: wgpu::FilterMode::Nearest,
+                        mipmap_filter: wgpu::MipmapFilterMode::Nearest,
                         ..Default::default()
                     },
                 )

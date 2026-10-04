@@ -99,8 +99,11 @@ impl LodObjectPipeline {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("LoD object pipeline layout"),
-                push_constant_ranges: &[],
-                bind_group_layouts: &[&global_layout.globals, &global_layout.shadow_textures],
+                immediate_size: 0,
+                bind_group_layouts: &[
+                    Some(&global_layout.globals),
+                    Some(&global_layout.shadow_textures),
+                ],
             });
 
         let samples = pipeline_modes.aa.samples();
@@ -111,7 +114,7 @@ impl LodObjectPipeline {
             vertex: wgpu::VertexState {
                 module: vs_module,
                 entry_point: Some("main"),
-                buffers: &[Vertex::desc(), Instance::desc()],
+                buffers: &[Some(Vertex::desc()), Some(Instance::desc())],
                 compilation_options: Default::default(),
             },
             primitive: wgpu::PrimitiveState {
@@ -132,8 +135,8 @@ impl LodObjectPipeline {
             },
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: wgpu::TextureFormat::Depth32Float,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(wgpu::CompareFunction::GreaterEqual),
                 stencil: wgpu::StencilState {
                     front: wgpu::StencilFaceState::IGNORE,
                     back: wgpu::StencilFaceState::IGNORE,
@@ -168,7 +171,7 @@ impl LodObjectPipeline {
                 ],
                 compilation_options: Default::default(),
             }),
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 

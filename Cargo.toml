@@ -238,6 +238,8 @@ vek = { version = "0.17.0", features = ["serde", "mint"] }
 quinn = { version = "0.11" }
 
 [patch.crates-io]
+wgpu = { path = "../wgpu/wgpu" }
+egui-wgpu = { path = "vendor/egui-wgpu-0.36.2" }
 atomicwrites = { path = "vendor/atomicwrites-0.4.4" }
 tynm = { path = "vendor/tynm-0.1.10" }
 wavefront = { path = "vendor/wavefront-0.2.3" }

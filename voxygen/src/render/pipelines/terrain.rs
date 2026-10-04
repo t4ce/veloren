@@ -240,12 +240,12 @@ impl TerrainPipeline {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Terrain pipeline layout"),
-                push_constant_ranges: &[],
+                immediate_size: 0,
                 bind_group_layouts: &[
-                    &global_layout.globals,
-                    &global_layout.shadow_textures,
-                    global_layout.terrain_atlas_layout.layout(),
-                    &layout.locals,
+                    Some(&global_layout.globals),
+                    Some(&global_layout.shadow_textures),
+                    Some(global_layout.terrain_atlas_layout.layout()),
+                    Some(&layout.locals),
                 ],
             });
 
@@ -257,7 +257,7 @@ impl TerrainPipeline {
             vertex: wgpu::VertexState {
                 module: vs_module,
                 entry_point: Some("main"),
-                buffers: &[Vertex::desc()],
+                buffers: &[Some(Vertex::desc())],
                 compilation_options: Default::default(),
             },
             primitive: wgpu::PrimitiveState {
@@ -278,8 +278,8 @@ impl TerrainPipeline {
             },
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: wgpu::TextureFormat::Depth32Float,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::GreaterEqual,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(wgpu::CompareFunction::GreaterEqual),
                 stencil: wgpu::StencilState {
                     front: wgpu::StencilFaceState::IGNORE,
                     back: wgpu::StencilFaceState::IGNORE,
@@ -314,7 +314,7 @@ impl TerrainPipeline {
                 ],
                 compilation_options: Default::default(),
             }),
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 

@@ -65,8 +65,8 @@ voxygen-egui = { package = "veloren-voxygen-egui", path = "egui", optional = tru
 
 # Graphics
 winit = { version = "0.30.12", features = ["serde"] }
-wgpu = { version = "27", features = ["spirv", "glsl"] }
-wgpu-profiler = "0.25"
+wgpu = { version = "=30.0.0", path = "../../wgpu/wgpu", features = ["spirv", "glsl"] }
+wgpu-profiler = "0.28"
 bytemuck = { version = "1.7", features = ["derive"] }
 shaderc = "0.10"
 
@@ -78,9 +78,9 @@ euc = { path = "../vendor/euc" }
 iced = { package = "iced_native", git = "https://github.com/Imberflur/iced", tag = "veloren-winit-0.28" }
 glyph_brush = "0.7.0"
 # EGUI
-egui = { version = "0.33", optional = true }
-egui-wgpu = { version = "0.33", optional = true }
-egui-winit = { version = "0.33", optional = true }
+egui = { version = "0.36", optional = true }
+egui-wgpu = { version = "0.36", optional = true }
+egui-winit = { version = "0.36", optional = true }
 
 # ECS
 specs = { workspace = true, features = ["serde", "storage-event-control"] }

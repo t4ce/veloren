@@ -137,6 +137,8 @@ pub struct Renderer {
     device: wgpu::Device,
     queue: wgpu::Queue,
     surface: wgpu::Surface<'static>,
+    instance: wgpu::Instance,
+    window: Arc<winit::window::Window>,
     surface_config: wgpu::SurfaceConfiguration,
 
     sampler: wgpu::Sampler,
@@ -197,6 +199,7 @@ impl Renderer {
     /// and the window targets.
     pub fn new(
         window: Arc<winit::window::Window>,
+        display: winit::event_loop::OwnedDisplayHandle,
         mode: RenderMode,
         runtime: &tokio::runtime::Runtime,
     ) -> Result<Self, RenderError> {
@@ -223,8 +226,9 @@ impl Renderer {
             })
             .unwrap_or(wgpu::Backends::PRIMARY | wgpu::Backends::SECONDARY);
 
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends,
+            display: Some(Box::new(display)),
             // TODO: Look into what we want here.
             flags: wgpu::InstanceFlags::from_build_config().with_env(),
             backend_options: wgpu::BackendOptions::default(),
@@ -234,10 +238,10 @@ impl Renderer {
         let dims = window.inner_size();
 
         let surface = instance
-            .create_surface(window)
+            .create_surface(Arc::clone(&window))
             .expect("Failed to create a surface");
 
-        let adapters = instance.enumerate_adapters(backends);
+        let adapters = runtime.block_on(instance.enumerate_adapters(backends));
 
         for (i, adapter) in adapters.iter().enumerate() {
             let info = adapter.get_info();
@@ -270,6 +274,7 @@ impl Renderer {
                     power_preference: wgpu::PowerPreference::HighPerformance,
                     compatible_surface: Some(&surface),
                     force_fallback_adapter: false,
+                    apply_limit_buckets: false,
                 }))?
             },
         };
@@ -291,7 +296,7 @@ impl Renderer {
             max_texture_dimension_1d: 0,
             max_texture_dimension_2d: supported_limits.max_texture_dimension_2d.min(8192),
             max_texture_dimension_3d: 0,
-            max_push_constant_size: 64,
+            max_immediate_size: 64,
             ..Default::default()
         };
 
@@ -329,7 +334,7 @@ impl Renderer {
                 label: None,
                 required_features: wgpu::Features::DEPTH_CLIP_CONTROL
                     | wgpu::Features::ADDRESS_MODE_CLAMP_TO_BORDER
-                    | wgpu::Features::PUSH_CONSTANTS
+                    | wgpu::Features::IMMEDIATES
                     // Only used for `ExperimentalShader::Wireframe`, so don't gate all builds on
                     // its presence.
                     | if ExperimentalShader::Wireframe.is_supported() {
@@ -338,6 +343,7 @@ impl Renderer {
                         wgpu::Features::empty()
                     }
                     | (adapter.features() & wgpu_profiler::GpuProfiler::ALL_WGPU_TIMER_FEATURES),
+                default_queue: wgpu::QueueDescriptor::default(),
                 required_limits,
                 experimental_features: wgpu::ExperimentalFeatures::disabled(),
                 memory_hints: wgpu::MemoryHints::Performance,
@@ -376,6 +382,7 @@ impl Renderer {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             desired_maximum_frame_latency: 2,
             format,
+            color_space: wgpu::SurfaceColorSpace::Auto,
             width: dims.width,
             height: dims.height,
             present_mode: if surface_capabilities.present_modes.contains(&present_mode) {
@@ -528,7 +535,7 @@ impl Renderer {
                 address_mode_w: AddressMode::ClampToEdge,
                 mag_filter: filter,
                 min_filter: filter,
-                mipmap_filter: FilterMode::Nearest,
+                mipmap_filter: wgpu::MipmapFilterMode::Nearest,
                 compare: None,
                 ..Default::default()
             })
@@ -610,6 +617,8 @@ impl Renderer {
             device,
             queue,
             surface,
+            instance,
+            window,
             surface_config,
 
             state,
@@ -953,6 +962,7 @@ impl Renderer {
                 mip_level_count: None,
                 base_array_layer: 0,
                 array_layer_count: None,
+                swizzle: wgpu::TextureComponentSwizzle::default(),
             })
         };
 
@@ -999,6 +1009,7 @@ impl Renderer {
             mip_level_count: None,
             base_array_layer: 0,
             array_layer_count: None,
+            swizzle: wgpu::TextureComponentSwizzle::default(),
         });
 
         let win_depth_tex = device.create_texture(&wgpu::TextureDescriptor {
@@ -1026,6 +1037,7 @@ impl Renderer {
             mip_level_count: None,
             base_array_layer: 0,
             array_layer_count: None,
+            swizzle: wgpu::TextureComponentSwizzle::default(),
         });
 
         (
@@ -1270,35 +1282,36 @@ impl Renderer {
         }
 
         let texture = match self.surface.get_current_texture() {
-            Ok(texture) => {
-                if texture.suboptimal {
-                    warn!("Suboptimal swap chain, recreating");
-                    drop(texture);
-                    self.surface.configure(&self.device, &self.surface_config);
-                    return Ok(None);
-                } else {
-                    texture
-                }
-            },
-            // If lost recreate the swap chain
-            Err(err @ wgpu::SurfaceError::Lost) => {
-                warn!("{}. Recreating swap chain. A frame will be missed", err);
+            wgpu::CurrentSurfaceTexture::Success(texture) => texture,
+            wgpu::CurrentSurfaceTexture::Suboptimal(texture) => {
+                warn!("Suboptimal swap chain, recreating");
+                drop(texture);
                 self.surface.configure(&self.device, &self.surface_config);
                 return Ok(None);
             },
-            Err(wgpu::SurfaceError::Timeout) => {
-                // This will probably be resolved on the next frame
-                // NOTE: we don't log this because it happens very frequently with
-                // PresentMode::Fifo and unlimited FPS on certain machines
-                return Ok(None);
-            },
-            Err(err @ wgpu::SurfaceError::Outdated) => {
-                warn!("{}. Recreating the swapchain", err);
+            wgpu::CurrentSurfaceTexture::Lost => {
+                warn!("Surface lost, recreating");
+                self.surface = self
+                    .instance
+                    .create_surface(Arc::clone(&self.window))
+                    .map_err(|err| {
+                        RenderError::CustomError(format!("Failed to recreate surface: {err}"))
+                    })?;
                 self.surface.configure(&self.device, &self.surface_config);
                 return Ok(None);
             },
-            Err(err @ (wgpu::SurfaceError::OutOfMemory | wgpu::SurfaceError::Other)) => {
-                return Err(err.into());
+            wgpu::CurrentSurfaceTexture::Outdated => {
+                warn!("Outdated swap chain, recreating");
+                self.surface.configure(&self.device, &self.surface_config);
+                return Ok(None);
+            },
+            wgpu::CurrentSurfaceTexture::Timeout | wgpu::CurrentSurfaceTexture::Occluded => {
+                return Ok(None);
+            },
+            wgpu::CurrentSurfaceTexture::Validation => {
+                return Err(RenderError::CustomError(
+                    "Surface acquisition validation failed".into(),
+                ));
             },
         };
         let encoder = self

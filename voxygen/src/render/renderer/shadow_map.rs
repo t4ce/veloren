@@ -88,6 +88,7 @@ impl ShadowMap {
                 mip_level_count: None,
                 base_array_layer: 0,
                 array_layer_count: None,
+                swizzle: wgpu::TextureComponentSwizzle::default(),
             };
 
             let sampler_info = wgpu::SamplerDescriptor {
@@ -97,7 +98,7 @@ impl ShadowMap {
                 address_mode_w: wgpu::AddressMode::ClampToEdge,
                 mag_filter: wgpu::FilterMode::Linear,
                 min_filter: wgpu::FilterMode::Linear,
-                mipmap_filter: wgpu::FilterMode::Nearest,
+                mipmap_filter: wgpu::MipmapFilterMode::Nearest,
                 compare: Some(wgpu::CompareFunction::LessEqual),
                 ..Default::default()
             };
@@ -126,6 +127,7 @@ impl ShadowMap {
                 }),
                 timestamp_writes: None,
                 occlusion_query_set: None,
+                multiview_mask: None,
             });
         };
         clear(&cube_tex);
@@ -219,6 +221,7 @@ impl ShadowMap {
             mip_level_count: None,
             base_array_layer: 0,
             array_layer_count: None,
+            swizzle: wgpu::TextureComponentSwizzle::default(),
         };
 
         let directed_shadow_tex = wgpu::TextureDescriptor {
@@ -246,6 +249,7 @@ impl ShadowMap {
             mip_level_count: None,
             base_array_layer: 0,
             array_layer_count: None,
+            swizzle: wgpu::TextureComponentSwizzle::default(),
         };
 
         let sampler_info = wgpu::SamplerDescriptor {
@@ -255,7 +259,7 @@ impl ShadowMap {
             address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
             compare: Some(wgpu::CompareFunction::LessEqual),
             ..Default::default()
         };

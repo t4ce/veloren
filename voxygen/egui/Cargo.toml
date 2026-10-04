@@ -14,9 +14,9 @@ be-dyn-lib = []
 [dependencies]
 client = {package = "veloren-client", path = "../../client"}
 common = {package = "veloren-common", path = "../../common"}
-egui = "0.33"
-egui_plot = "0.34"
-egui-winit = "0.33"
+egui = "0.36"
+egui_plot = "0.37"
+egui-winit = "0.36"
 lazy_static = { workspace = true }
 winit = "0.30"
 common-dynlib = {package = "veloren-common-dynlib", path = "../../common/dynlib", optional = true}

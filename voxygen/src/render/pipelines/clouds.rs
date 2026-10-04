@@ -161,11 +161,11 @@ impl CloudsPipeline {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Clouds pipeline layout"),
-                push_constant_ranges: &[],
+                immediate_size: 0,
                 bind_group_layouts: &[
-                    &global_layout.globals,
-                    &global_layout.shadow_textures,
-                    &layout.layout,
+                    Some(&global_layout.globals),
+                    Some(&global_layout.shadow_textures),
+                    Some(&layout.layout),
                 ],
             });
 
@@ -205,7 +205,7 @@ impl CloudsPipeline {
                 })],
                 compilation_options: Default::default(),
             }),
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 

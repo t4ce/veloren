@@ -59,8 +59,11 @@ fn main() {
                 return;
             },
             cli::Commands::ListWgpuDevices => {
-                let adapters = Instance::new(&wgpu::InstanceDescriptor::from_env_or_default())
-                    .enumerate_adapters(Backends::default());
+                let runtime = tokio::runtime::Runtime::new().unwrap();
+                let instance = Instance::new(
+                    wgpu::InstanceDescriptor::new_without_display_handle().with_env(),
+                );
+                let adapters = runtime.block_on(instance.enumerate_adapters(Backends::default()));
                 for adapter in adapters {
                     println!("{}", adapter.get_info().name);
                 }

@@ -99,8 +99,8 @@ impl RainOcclusionFigurePipeline {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Rain occlusion figure pipeline layout"),
-                push_constant_ranges: &[],
-                bind_group_layouts: &[&global_layout.globals, &figure_layout.locals],
+                immediate_size: 0,
+                bind_group_layouts: &[Some(&global_layout.globals), Some(&figure_layout.locals)],
             });
 
         let samples = aa_mode.samples();
@@ -111,7 +111,7 @@ impl RainOcclusionFigurePipeline {
             vertex: wgpu::VertexState {
                 module: vs_module,
                 entry_point: Some("main"),
-                buffers: &[TerrainVertex::desc()],
+                buffers: &[Some(TerrainVertex::desc())],
                 compilation_options: Default::default(),
             },
             primitive: wgpu::PrimitiveState {
@@ -125,8 +125,8 @@ impl RainOcclusionFigurePipeline {
             },
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: wgpu::TextureFormat::Depth24Plus,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(wgpu::CompareFunction::Less),
                 stencil: wgpu::StencilState {
                     front: wgpu::StencilFaceState::IGNORE,
                     back: wgpu::StencilFaceState::IGNORE,
@@ -145,7 +145,7 @@ impl RainOcclusionFigurePipeline {
                 alpha_to_coverage_enabled: false,
             },
             fragment: None,
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 
@@ -170,8 +170,8 @@ impl RainOcclusionPipeline {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Rain occlusion pipeline layout"),
-                push_constant_ranges: &[],
-                bind_group_layouts: &[&global_layout.globals, &terrain_layout.locals],
+                immediate_size: 0,
+                bind_group_layouts: &[Some(&global_layout.globals), Some(&terrain_layout.locals)],
             });
 
         let samples = aa_mode.samples();
@@ -182,7 +182,7 @@ impl RainOcclusionPipeline {
             vertex: wgpu::VertexState {
                 module: vs_module,
                 entry_point: Some("main"),
-                buffers: &[TerrainVertex::desc()],
+                buffers: &[Some(TerrainVertex::desc())],
                 compilation_options: Default::default(),
             },
             primitive: wgpu::PrimitiveState {
@@ -196,8 +196,8 @@ impl RainOcclusionPipeline {
             },
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: wgpu::TextureFormat::Depth24Plus,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(wgpu::CompareFunction::Less),
                 stencil: wgpu::StencilState {
                     front: wgpu::StencilFaceState::IGNORE,
                     back: wgpu::StencilFaceState::IGNORE,
@@ -216,7 +216,7 @@ impl RainOcclusionPipeline {
                 alpha_to_coverage_enabled: false,
             },
             fragment: None,
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 

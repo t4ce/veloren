@@ -395,7 +395,7 @@ pub trait AtlasData {
                 address_mode_w: wgpu::AddressMode::ClampToEdge,
                 mag_filter: wgpu::FilterMode::Linear,
                 min_filter: wgpu::FilterMode::Linear,
-                mipmap_filter: wgpu::FilterMode::Nearest,
+                mipmap_filter: wgpu::MipmapFilterMode::Nearest,
                 border_color: Some(wgpu::SamplerBorderColor::TransparentBlack),
                 ..Default::default()
             };
@@ -410,6 +410,7 @@ pub trait AtlasData {
                 mip_level_count: None,
                 base_array_layer: 0,
                 array_layer_count: None,
+                swizzle: wgpu::TextureComponentSwizzle::default(),
             };
 
             renderer.create_texture_with_data_raw(&texture_info, &view_info, &sampler_info, data)

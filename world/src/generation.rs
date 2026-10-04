@@ -37,6 +37,20 @@ pub(crate) fn for_each_site<T>(sites: impl IntoIterator<Item = T>, mut update: i
     }
 }
 
+/// Visit every cell once, completing generation and insertion before advancing.
+#[cfg(any(target_os = "trueos", feature = "cooperative-worldgen"))]
+pub(crate) fn for_each_cell<T>(size: [u32; 2], mut generate: impl FnMut([u32; 2]) -> T, mut insert: impl FnMut([u32; 2], T)) {
+    let mut budget = WorkBudget::new();
+    for x in 0..size[0] {
+        for y in 0..size[1] {
+            let position = [x, y];
+            let value = generate(position);
+            insert(position, value);
+            budget.checkpoint();
+        }
+    }
+}
+
 /// Retain every result (including absent samples) in input order, without a
 /// parallel completion barrier during cooperative bootstrap.
 #[cfg(any(target_os = "trueos", feature = "cooperative-worldgen"))]
@@ -61,6 +75,8 @@ pub(crate) fn collect_ordered_into<T, U>(items: impl IntoIterator<Item = T>, mut
 /// Report completed work independently of the quiet scheduling budget.
 pub(crate) struct ScanProgress {
     #[cfg(target_os = "trueos")]
+    group: &'static str,
+    #[cfg(target_os = "trueos")]
     stage: &'static str,
     #[cfg(target_os = "trueos")]
     total: usize,
@@ -72,7 +88,13 @@ pub(crate) struct ScanProgress {
 
 impl ScanProgress {
     pub(crate) fn new(_stage: &'static str, _total: usize) -> Self {
+        Self::for_group("map-data", _stage, _total)
+    }
+
+    pub(crate) fn for_group(_group: &'static str, _stage: &'static str, _total: usize) -> Self {
         Self {
+            #[cfg(target_os = "trueos")]
+            group: _group,
             #[cfg(target_os = "trueos")]
             stage: _stage,
             #[cfg(target_os = "trueos")]
@@ -89,8 +111,8 @@ impl ScanProgress {
         if _completed == 1 || _completed == self.total
             || self.last_report.elapsed() >= std::time::Duration::from_secs(2)
         {
-            eprintln!("velosrv: map-data stage={} completed={}/{} elapsed_ms={}",
-                self.stage, _completed, self.total, self.started.elapsed().as_millis());
+            eprintln!("velosrv: {} stage={} completed={}/{} elapsed_ms={}",
+                self.group, self.stage, _completed, self.total, self.started.elapsed().as_millis());
             self.last_report = std::time::Instant::now();
         }
     }

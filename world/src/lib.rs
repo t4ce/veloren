@@ -643,12 +643,38 @@ impl World {
         Ok((chunk, supplement))
     }
 
+    /// Complete each bootstrap LOD zone before moving to the next. The server
+    /// retains the full cache and sends the same zone contents to clients.
+    #[cfg(any(target_os = "trueos", feature = "cooperative-worldgen"))]
+    pub fn for_each_lod_zone(&self, index: IndexRef, mut insert: impl FnMut(Vec2<i32>, lod::Zone)) {
+        let size = (self.sim().get_size() + lod::ZONE_SIZE - 1) / lod::ZONE_SIZE;
+        let mut progress = generation::ScanProgress::for_group("lod", "zones-progress", size.product() as usize);
+        let mut completed = 0;
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: lod stage=zones-start zones={}", size.product());
+        generation::for_each_cell(size.into_array(), |position| {
+            let position = Vec2::<u32>::from(position).map(|e| e as i32);
+            #[cfg(target_os = "trueos")]
+            if position == Vec2::zero() {
+                eprintln!("velosrv: lod stage=first-zone-enter x=0 y=0");
+            }
+            self.get_lod_zone(position, index)
+        }, |position, zone| {
+            insert(Vec2::<u32>::from(position).map(|e| e as i32), zone);
+            completed += 1;
+            progress.completed(completed);
+        });
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: lod stage=zones-complete");
+    }
+
     // Zone coordinates
     pub fn get_lod_zone(&self, pos: Vec2<i32>, index: IndexRef) -> lod::Zone {
         let min_wpos = pos.map(lod::to_wpos);
         let max_wpos = (pos + 1).map(lod::to_wpos);
 
         let mut objects = Vec::new();
+        let mut budget = generation::WorkBudget::new();
 
         // Add trees
         prof_span!(guard, "add trees");
@@ -656,6 +682,7 @@ impl World {
             &mut self
                 .sim()
                 .get_area_trees(min_wpos, max_wpos)
+                .inspect(|_| budget.checkpoint())
                 .filter_map(|attr| {
                     ColumnGen::new(self.sim())
                         .get((attr.pos, index, self.sim().calendar.as_ref()))
@@ -802,6 +829,7 @@ impl World {
                     })
                 })
                 .filter_map(|(wpos2d, color, model)| {
+                    budget.checkpoint();
                     ColumnGen::new(self.sim())
                         .get((wpos2d, index, self.sim().calendar.as_ref()))
                         .zip(Some((wpos2d, color, model)))

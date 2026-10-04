@@ -11,6 +11,7 @@ workspace = true
 embedded-auth-roots = ["dep:hyper-rustls", "dep:hyper-util", "dep:http-body-util", "dep:bytes"]
 redb-backend = ["dep:redb"]
 worldgen = ["server-agent/worldgen"]
+cooperative-worldgen = ["world/cooperative-worldgen"]
 simd = ["vek/platform_intrinsics"]
 plugins = ["common-state/plugins", "common-systems/plugins", "common/plugins"]
 persistent_world = []

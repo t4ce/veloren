@@ -92,3 +92,21 @@ fn map_sampling_preserves_positions_absent_cells_and_stateful_order() {
     assert_eq!(final_seed, expected_seed);
     assert_eq!(actual.len(), 4096);
 }
+
+#[test]
+fn lod_cells_preserve_complete_non_square_grid_and_generated_values() {
+    for size in [[3, 5], [32, 32], [0, 5], [5, 0]] {
+        let expected = (0..size[0]).flat_map(|x| (0..size[1]).map(move |y| [x, y])).collect::<Vec<_>>();
+        let generated = std::cell::RefCell::new(Vec::new());
+        let mut inserted = Vec::new();
+        generation::for_each_cell(size, |position| {
+            generated.borrow_mut().push(position);
+            position[0] * 37 + position[1]
+        }, |position, value| {
+            assert_eq!(generated.borrow().last(), Some(&position));
+            inserted.push((position, value));
+        });
+        assert_eq!(*generated.borrow(), expected);
+        assert_eq!(inserted, expected.iter().map(|p| (*p, p[0] * 37 + p[1])).collect::<Vec<_>>());
+    }
+}

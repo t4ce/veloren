@@ -22,7 +22,18 @@ impl Lod {
         threadpool.install(|| {
             let zone_sz = (world.sim().get_size() + lod::ZONE_SIZE - 1) / lod::ZONE_SIZE;
 
+            #[cfg(any(target_os = "trueos", feature = "cooperative-worldgen"))]
+            let zones = {
+                let mut zones = HashMap::with_capacity(zone_sz.product() as usize);
+                world.for_each_lod_zone(index, |position, zone| {
+                    zones.insert(position, zone);
+                });
+                zones
+            };
+
+            #[cfg(not(any(target_os = "trueos", feature = "cooperative-worldgen")))]
             use tokio_parallel::prelude::*;
+            #[cfg(not(any(target_os = "trueos", feature = "cooperative-worldgen")))]
             let zones = (0..zone_sz.x)
                 .into_par_iter()
                 .flat_map(|i| (0..zone_sz.y).into_par_iter().map(move |j| (i, j)))

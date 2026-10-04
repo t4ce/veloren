@@ -347,10 +347,16 @@ impl Server {
         #[cfg(not(feature = "worldgen"))]
         let map_size_lg = world.map_size_lg();
 
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: startup stage=lod-start");
         let lod = lod::Lod::from_world(&world, index.as_index_ref(), &pools);
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: startup stage=lod-complete");
 
         report_stage(ServerInitStage::StartingSystems);
 
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: startup stage=systems-start");
         let mut state = State::server(
             Arc::clone(&pools),
             map_size_lg,
@@ -368,6 +374,8 @@ impl Server {
             #[cfg(feature = "plugins")]
             plugin_mgr,
         );
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: startup stage=systems-complete");
         events::register_event_busses(state.ecs_mut());
         state.ecs_mut().insert(battlemode_buffer);
         state.ecs_mut().insert(RecentClientIPs::default());
@@ -441,6 +449,8 @@ impl Server {
             state.ecs_mut().insert(receiver);
         }
 
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: startup stage=persistence-start");
         state.ecs_mut().insert(CharacterUpdater::new(
             Arc::<RwLock<DatabaseSettings>>::clone(&database_settings),
         )?);
@@ -459,6 +469,8 @@ impl Server {
         state.ecs_mut().insert(CharacterLoader::new(
             Arc::<RwLock<DatabaseSettings>>::clone(&database_settings),
         )?);
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: startup stage=persistence-complete");
 
         // System schedulers to control execution of systems
         state
@@ -494,6 +506,8 @@ impl Server {
 
         #[cfg(feature = "worldgen")]
         let spawn_point = SpawnPoint({
+            #[cfg(target_os = "trueos")]
+            eprintln!("velosrv: startup stage=spawn-point-start");
             let index = index.as_index_ref();
             // NOTE: all of these `.map(|e| e as [type])` calls should compile into no-ops,
             // but are needed to be explicit about casting (and to make the compiler stop
@@ -510,7 +524,10 @@ impl Server {
                 .min_by_key(|site_pos| site_pos.distance_squared(center_chunk))
                 .unwrap_or(center_chunk);
 
-            world.find_accessible_pos(index, TerrainChunkSize::center_wpos(spawn_chunk), false)
+            let position = world.find_accessible_pos(index, TerrainChunkSize::center_wpos(spawn_chunk), false);
+            #[cfg(target_os = "trueos")]
+            eprintln!("velosrv: startup stage=spawn-point-complete");
+            position
         });
         #[cfg(not(feature = "worldgen"))]
         let spawn_point = SpawnPoint::default();
@@ -556,6 +573,8 @@ impl Server {
 
         // Only allow clients to send us a maximum of 1 MB per uncompressed message, to
         // reduce the effectiveness of a DoS attack
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: startup stage=network-start");
         let network = Network::new_with_registry(Pid::new(), &runtime, &registry, 1 << 20);
         let (chat_cache, chat_tracker) = ChatCache::new(Duration::from_secs(60), &runtime);
         state.ecs_mut().insert(chat_tracker);
@@ -668,10 +687,14 @@ impl Server {
         runtime.block_on(network.listen(ListenAddr::Mpsc(14004)))?;
 
         let connection_handler = ConnectionHandler::new(network, &runtime);
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: startup stage=network-complete");
 
         // Init rtsim, loading it from disk if possible
         #[cfg(feature = "worldgen")]
         {
+            #[cfg(target_os = "trueos")]
+            eprintln!("velosrv: startup stage=rtsim-start");
             match rtsim::RtSim::new(
                 &settings.world,
                 index.as_index_ref(),
@@ -688,6 +711,8 @@ impl Server {
                 },
             }
             weather::init(&mut state);
+            #[cfg(target_os = "trueos")]
+            eprintln!("velosrv: startup stage=rtsim-complete");
         }
 
         let this = Self {

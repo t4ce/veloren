@@ -2521,10 +2521,12 @@ impl WorldSim {
         wpos_min: Vec2<i32>,
         wpos_max: Vec2<i32>,
     ) -> impl Iterator<Item = TreeAttr> + '_ {
+        let mut budget = crate::generation::WorkBudget::new();
         self.gen_ctx
             .structure_gen
             .iter(wpos_min, wpos_max)
             .filter_map(move |(wpos, seed)| {
+                budget.checkpoint();
                 let lottery = self.make_forest_lottery(wpos);
                 Some(TreeAttr {
                     pos: wpos,

@@ -270,7 +270,13 @@ impl Civs {
         report_stage(WorldCivStage::SiteGeneration);
         prof_span!(guard, "find locations and establish sites");
         let world_dims = ctx.sim.get_aabr();
-        for _ in 0..initial_civ_count * 3 {
+        for _placement in 0..initial_civ_count * 3 {
+            #[cfg(target_os = "trueos")]
+            eprintln!(
+                "velosrv: sites stage=location-start placement={}/{}",
+                _placement + 1,
+                initial_civ_count * 3
+            );
             attempt(5, || {
                 let (loc, kind) = match ctx.rng.random_range(0..116) {
                     0..=4 => (
@@ -462,6 +468,11 @@ impl Civs {
                     site_tmp: None,
                 }))
             });
+            #[cfg(target_os = "trueos")]
+            eprintln!(
+                "velosrv: sites stage=location-complete placement={}",
+                _placement + 1
+            );
         }
         drop(guard);
 
@@ -474,6 +485,11 @@ impl Civs {
         let mut gen_meta = SitesGenMeta::new(seed);
         for sim_site in this.sites.values_mut() {
             cnt += 1;
+            #[cfg(target_os = "trueos")]
+            eprintln!(
+                "velosrv: sites stage=build-start site={} kind={:?} center={:?}",
+                cnt, sim_site.kind, sim_site.center
+            );
             let wpos = sim_site
                 .center
                 .map2(TerrainChunkSize::RECT_SIZE, |e, sz: u32| {
@@ -647,10 +663,14 @@ impl Civs {
                 ctx.sim.get_mut(pos).map(|chunk| chunk.sites.push(site));
             }
             debug!(?sim_site.center, "Placed site at location");
+            #[cfg(target_os = "trueos")]
+            eprintln!("velosrv: sites stage=build-complete site={}", cnt);
         }
         drop(guard);
         info!(?cnt, "all sites placed");
         gen_meta.log();
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: sites stage=economy-neighbors-start");
 
         //this.display_info();
 
@@ -679,8 +699,12 @@ impl Civs {
         }
 
         prof_span!(guard, "generate airship routes");
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: sites stage=airship-routes-start");
         this.airships.generate_airship_routes(ctx.sim, index);
         drop(guard);
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: sites stage=airship-routes-complete");
 
         // TODO: this looks optimizable
 
@@ -688,6 +712,14 @@ impl Civs {
         prof_span!(guard, "collect natural resources");
         let sites = &mut index.sites;
         (0..ctx.sim.map_size_lg().chunks_len()).for_each(|posi| {
+            #[cfg(target_os = "trueos")]
+            if posi % 65536 == 0 {
+                eprintln!(
+                    "velosrv: sites stage=resources chunk={}/{}",
+                    posi,
+                    ctx.sim.map_size_lg().chunks_len()
+                );
+            }
             let chpos = uniform_idx_as_vec2(ctx.sim.map_size_lg(), posi);
             let wpos = chpos.map(|e| e as i64) * TerrainChunkSize::RECT_SIZE.map(|e| e as i64);
             let closest_site = (*sites)
@@ -709,6 +741,9 @@ impl Civs {
                 econ.cache_economy()
             }
         });
+
+        #[cfg(target_os = "trueos")]
+        eprintln!("velosrv: sites stage=complete");
 
         this
     }

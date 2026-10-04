@@ -1,11 +1,15 @@
 use crate::render::{
     pipelines::rain_occlusion,
-    renderer::compiler::{ShaderCCompiler, ShaderStage, WgpuCompiler},
+    renderer::compiler::ShaderStage,
 };
+#[cfg(not(feature = "precompiled-shaders"))]
+use super::compiler::{ShaderCCompiler, WgpuCompiler};
+#[cfg(not(feature = "precompiled-shaders"))]
+use super::super::ExperimentalShader;
 
 use super::{
     super::{
-        AaMode, BloomMode, CloudMode, ExperimentalShader, FluidMode, LightingMode, PipelineModes,
+        AaMode, BloomMode, CloudMode, FluidMode, LightingMode, PipelineModes,
         ReflectionMode, RenderError, ShadowMode,
         pipelines::{
             blit, bloom, clouds, debug, figure, fluid, lod_object, lod_terrain, particle,
@@ -286,6 +290,7 @@ impl ShaderModules {
             })
             .unwrap();
 
+        #[cfg(not(feature = "precompiled-shaders"))]
         let shaderc_opts = !pipeline_modes
             .experimental_shaders
             .contains(&ExperimentalShader::DisableShadercOptimization);
@@ -313,6 +318,10 @@ impl ShaderModules {
             })
         };
 
+        #[cfg(feature = "precompiled-shaders")]
+        let mut compiler: Box<dyn super::compiler::Compiler> =
+            Box::new(super::compiler::PrecompiledCompiler::new(fetch_include)?);
+        #[cfg(not(feature = "precompiled-shaders"))]
         let mut compiler: Box<dyn super::compiler::Compiler> = if pipeline_modes.enable_naga {
             Box::new(WgpuCompiler::new(fetch_include)?)
         } else {

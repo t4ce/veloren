@@ -23,6 +23,7 @@ This package includes the official client, Voxygen.
 """
 
 [features]
+precompiled-shaders = []
 hot-anim = ["anim/use-dyn-lib"]
 hot-egui = ["voxygen-egui/use-dyn-lib", "egui"]
 hot-reloading = ["common/hot-reloading"]

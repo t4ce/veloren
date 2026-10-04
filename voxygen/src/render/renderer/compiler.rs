@@ -1,4 +1,5 @@
 use common_base::prof_span;
+#[cfg(not(feature = "precompiled-shaders"))]
 use tracing::info;
 
 use crate::render::RenderError;
@@ -36,11 +37,13 @@ pub(super) trait Compiler {
     ) -> Result<wgpu::ShaderModule, RenderError>;
 }
 
+#[cfg(not(feature = "precompiled-shaders"))]
 pub(super) struct ShaderCCompiler {
     compiler: shaderc::Compiler,
     options: shaderc::CompileOptions<'static>,
 }
 
+#[cfg(not(feature = "precompiled-shaders"))]
 impl ShaderCCompiler {
     pub(super) fn new(
         optimize: bool,
@@ -69,6 +72,7 @@ impl ShaderCCompiler {
     }
 }
 
+#[cfg(not(feature = "precompiled-shaders"))]
 impl Compiler for ShaderCCompiler {
     fn create_shader_module(
         &mut self,
@@ -116,6 +120,100 @@ impl Compiler for ShaderCCompiler {
 pub(super) struct WgpuCompiler {
     reg: regex::Regex,
     resolve_include: Box<dyn Fn(&str, &str) -> Result<String, String> + 'static>,
+}
+
+#[cfg(feature = "precompiled-shaders")]
+mod baked {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/shaderbin/catalog.rs"));
+}
+
+#[cfg(feature = "precompiled-shaders")]
+pub(super) struct PrecompiledCompiler {
+    includes: WgpuCompiler,
+}
+
+#[cfg(feature = "precompiled-shaders")]
+impl PrecompiledCompiler {
+    pub(super) fn new(
+        resolve_include: impl Fn(&str, &str) -> Result<String, String> + 'static,
+    ) -> Result<Self, RenderError> {
+        Ok(Self {
+            includes: WgpuCompiler::new(resolve_include)?,
+        })
+    }
+}
+
+#[cfg(feature = "precompiled-shaders")]
+impl Compiler for PrecompiledCompiler {
+    fn create_shader_module(
+        &mut self,
+        device: &wgpu::Device,
+        source: &str,
+        _stage: ShaderStage,
+        name: &str,
+    ) -> Result<wgpu::ShaderModule, RenderError> {
+        use sha2::{Digest, Sha256};
+        let sha256 = |bytes: &[u8]| -> String {
+            Sha256::digest(bytes)
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect()
+        };
+        let mut source = source.to_owned();
+        for _ in 0..64 {
+            let mut failure = None;
+            let expanded = self
+                .includes
+                .reg
+                .replace_all(&source, |cap: &regex::Captures| {
+                    match (self.includes.resolve_include)(&cap[1], name) {
+                        Ok(text) => text.trim_end_matches('\n').to_owned(),
+                        Err(error) => {
+                            failure = Some(error);
+                            String::new()
+                        },
+                    }
+                })
+                .into_owned();
+            if let Some(error) = failure {
+                return Err(RenderError::CustomError(error));
+            }
+            if expanded == source {
+                break;
+            }
+            source = expanded;
+        }
+        if self.includes.reg.is_match(&source) {
+            return Err(RenderError::CustomError(format!(
+                "Unresolved shader includes: {name}"
+            )));
+        }
+        let canonical = source
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
+        let hash = sha256(canonical.as_bytes());
+        let (_, _, binary_hash, bytes) = baked::SHADERS
+            .iter()
+            .find(|(label, source_hash, _, _)| *label == name && *source_hash == hash)
+            .ok_or_else(|| {
+                RenderError::CustomError(format!(
+                    "No precompiled shader for {name} and this rendering configuration; rebake \
+                     shaderbin"
+                ))
+            })?;
+        if sha256(bytes) != *binary_hash {
+            return Err(RenderError::CustomError(format!(
+                "Corrupt precompiled shader: {name}"
+            )));
+        }
+        Ok(device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some(name),
+            source: wgpu::util::make_spirv(bytes),
+        }))
+    }
 }
 
 impl WgpuCompiler {

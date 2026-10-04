@@ -937,3 +937,38 @@ impl<'a> MetricsGuard<'a> {
 impl Drop for MetricsGuard<'_> {
     fn drop(&mut self) { self.metrics.add(self.label, self.start.elapsed()); }
 }
+
+#[cfg(test)]
+mod shutdown_tests {
+    use super::State;
+    use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+
+    #[test]
+    fn retained_background_pool_does_not_prevent_owner_runtime_shutdown() {
+        struct TaskDrop(Arc<AtomicUsize>);
+        impl Drop for TaskDrop {
+            fn drop(&mut self) { self.0.fetch_add(1, Ordering::AcqRel); }
+        }
+        let stopped = Arc::new(AtomicUsize::new(0));
+        let on_stop = stopped.clone();
+        let runtime = Arc::new(tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .on_thread_stop(move || { on_stop.fetch_add(1, Ordering::AcqRel); })
+            .build().unwrap());
+        let pool = State::pools_on(runtime.clone());
+        assert_eq!(Arc::strong_count(&runtime), 1);
+        let dropped = Arc::new(AtomicUsize::new(0));
+        let task_drop = TaskDrop(dropped.clone());
+        let (ready, entered) = std::sync::mpsc::channel();
+        runtime.spawn(async move {
+            let _pool = pool;
+            let _task_drop = task_drop;
+            ready.send(()).unwrap();
+            std::future::pending::<()>().await;
+        });
+        entered.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
+        drop(runtime);
+        assert_eq!(dropped.load(Ordering::Acquire), 1);
+        assert_eq!(stopped.load(Ordering::Acquire), 2);
+    }
+}

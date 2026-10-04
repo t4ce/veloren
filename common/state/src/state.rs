@@ -941,7 +941,10 @@ impl Drop for MetricsGuard<'_> {
 #[cfg(test)]
 mod shutdown_tests {
     use super::State;
-    use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
 
     #[test]
     fn retained_background_pool_does_not_prevent_owner_runtime_shutdown() {
@@ -951,10 +954,15 @@ mod shutdown_tests {
         }
         let stopped = Arc::new(AtomicUsize::new(0));
         let on_stop = stopped.clone();
-        let runtime = Arc::new(tokio::runtime::Builder::new_multi_thread()
-            .worker_threads(2)
-            .on_thread_stop(move || { on_stop.fetch_add(1, Ordering::AcqRel); })
-            .build().unwrap());
+        let runtime = Arc::new(
+            tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(2)
+                .on_thread_stop(move || {
+                    on_stop.fetch_add(1, Ordering::AcqRel);
+                })
+                .build()
+                .unwrap(),
+        );
         let pool = State::pools_on(runtime.clone());
         assert_eq!(Arc::strong_count(&runtime), 1);
         let dropped = Arc::new(AtomicUsize::new(0));
@@ -966,7 +974,9 @@ mod shutdown_tests {
             ready.send(()).unwrap();
             std::future::pending::<()>().await;
         });
-        entered.recv_timeout(std::time::Duration::from_secs(5)).unwrap();
+        entered
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .unwrap();
         drop(runtime);
         assert_eq!(dropped.load(Ordering::Acquire), 1);
         assert_eq!(stopped.load(Ordering::Acquire), 2);

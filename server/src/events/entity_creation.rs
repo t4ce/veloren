@@ -588,6 +588,14 @@ pub fn handle_create_special_entity(server: &mut Server, ev: CreateSpecialEntity
                 ]))
                 .build();
         },
+        SpecialEntity::ServerPortal => {
+            if server.state.ecs().read_resource::<crate::Settings>()
+                .town_portal_destination.is_some()
+            {
+                server.state.create_object(comp::Pos(ev.pos), comp::object::Body::Portal)
+                    .with(comp::Immovable).with(comp::Object::ServerPortal).build();
+            }
+        },
         SpecialEntity::Teleporter(portal) => {
             server
                 .state

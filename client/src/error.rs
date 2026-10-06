@@ -7,6 +7,7 @@ use specs::error::Error as SpecsError;
 
 #[derive(Debug)]
 pub enum Error {
+    VersionMismatch { client: u32, server: u32 },
     Kicked(String),
     NetworkErr(NetworkError),
     ParticipantErr(ParticipantError),

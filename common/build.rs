@@ -26,9 +26,7 @@ fn watch_git_version() {
     }
 }
 
-// Get the current githash+timestamp
-// Note: It will compare commits. As long as the commits do not diverge from the
-// server no version change will be detected.
+// Get build provenance; compatibility is determined only by GAME_VERSION.
 fn get_git_hash_timestamp() -> Result<String, String> {
     let output = Command::new("git")
         .args(["log", "-n", "1", "--pretty=format:%h/%ct", "--abbrev=8"])
@@ -89,6 +87,17 @@ fn get_git_tag() -> Option<String> {
 
 fn main() {
     watch_git_version();
+    let version_file = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../GAME_VERSION");
+    let version_file = version_file.canonicalize().expect("GAME_VERSION file is missing");
+    println!("cargo::rerun-if-changed={}", version_file.display());
+    let version: u32 = std::fs::read_to_string(&version_file)
+        .expect("Cannot read GAME_VERSION")
+        .trim()
+        .parse()
+        .expect("GAME_VERSION must contain one unsigned decimal number");
+    let output = std::path::Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("game_version.rs");
+    std::fs::write(output, format!("pub const GAME_VERSION: u32 = {version};\n"))
+        .expect("Cannot embed GAME_VERSION");
     // If this env var exists, it'll be used instead
     if option_env!("VELOREN_GIT_VERSION").is_none() {
         let hash_timestamp = match get_git_hash_timestamp() {
@@ -105,8 +114,7 @@ fn main() {
                      can set the environment variable \"VELOREN_GIT_VERSION\" to \"/0/0\" before \
                      re-running the given cargo command (the specific procedure for this will \
                      depend on your shell). Note that this will compile the game with git commit \
-                     hash and commit timestamp set to 0, which will cause version mismatch \
-                     warnings where applicable, whether the version is actually mismatched or not."
+                     hash and commit timestamp set to 0 for build identification."
                 );
                 return;
             },

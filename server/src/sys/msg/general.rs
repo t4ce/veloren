@@ -104,6 +104,7 @@ impl<'a> System<'a> for Sys {
         Entities<'a>,
         Events<'a>,
         Read<'a, ProgramTime>,
+        Read<'a, crate::server_portals::PortalTransfers>,
         ReadStorage<'a, Uid>,
         ReadStorage<'a, ChatMode>,
         ReadStorage<'a, Player>,
@@ -117,7 +118,7 @@ impl<'a> System<'a> for Sys {
 
     fn run(
         _job: &mut Job<Self>,
-        (entities, events, program_time, uids, chat_modes, players, groups, mut clients): Self::SystemData,
+        (entities, events, program_time, portal_transfers, uids, chat_modes, players, groups, mut clients): Self::SystemData,
     ) {
         (&entities, &mut clients, players.maybe())
             .par_join()
@@ -125,6 +126,9 @@ impl<'a> System<'a> for Sys {
                 || events.get_emitters(),
                 |emitters, (entity, client, player)| {
                     let res = super::try_recv_all(client, 3, |client, msg| {
+                        if portal_transfers.is_holding(entity) && matches!(msg, ClientGeneral::Command(..)) {
+                            return Ok(());
+                        }
                         Self::handle_general_msg(
                             emitters,
                             entity,

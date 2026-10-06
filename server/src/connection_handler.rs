@@ -1,10 +1,44 @@
 use crate::{Client, ClientType, ServerInfo};
+use common_net::msg::{ClientHello, GameVersionAnswer};
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use futures_util::future::FutureExt;
-use network::{Network, Participant, Promises};
+use network::{Network, Participant, Promises, Stream};
 use std::time::Duration;
 use tokio::{runtime::Runtime, select, sync::oneshot};
 use tracing::{debug, error, info, trace, warn};
+
+const TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Admit the numeric game version before creating a client or accepting any
+/// registration credentials. A legacy raw ClientType fails closed on decode.
+async fn receive_client_hello(
+    register_stream: &mut Stream,
+    server_version: u32,
+) -> Result<Option<ClientType>, Box<dyn std::error::Error>> {
+    let hello = match select!(
+        _ = tokio::time::sleep(TIMEOUT).fuse() => None,
+        hello = register_stream.recv::<ClientHello>().fuse() => Some(hello),
+    ) {
+        None => {
+            debug!("Timeout for incoming client version elapsed, aborting connection");
+            return Ok(None);
+        },
+        Some(hello) => hello?,
+    };
+    let answer: GameVersionAnswer = hello.check_version(server_version);
+    register_stream.send(&answer)?;
+    match answer {
+        Ok(()) => Ok(Some(hello.client_type)),
+        Err(mismatch) => {
+            warn!(
+                client = mismatch.client,
+                server = mismatch.server,
+                "Game version mismatch; rejecting client before registration"
+            );
+            Ok(None)
+        },
+    }
+}
 
 pub(crate) struct ServerInfoPacket {
     pub info: ServerInfo,
@@ -143,16 +177,10 @@ impl ConnectionHandler {
         register_stream.send(server_data.info)?;
         info!(pid = ?participant.remote_pid(), stage = "server-info-sent", "Client setup");
 
-        const TIMEOUT: Duration = Duration::from_secs(5);
-        let client_type = match select!(
-            _ = tokio::time::sleep(TIMEOUT).fuse() => None,
-            t = register_stream.recv::<ClientType>().fuse() => Some(t),
-        ) {
-            None => {
-                debug!("Timeout for incoming client elapsed, aborting connection");
-                return Ok(());
-            },
-            Some(client_type) => client_type?,
+        let Some(client_type) =
+            receive_client_hello(&mut register_stream, common::util::GAME_VERSION).await?
+        else {
+            return Ok(());
         };
 
         use network::ParticipantEvent;
@@ -210,5 +238,115 @@ impl Drop for ConnectionHandler {
             .expect("`thread_handle` is private, initialized as `Some`, and only updated in Drop")
             .abort();
         trace!("aborted ConnectionHandler!");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use common_net::msg::GameVersionMismatch;
+    use network::{ConnectAddr, ListenAddr, Pid};
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static NEXT_PORT: AtomicU64 = AtomicU64::new(30_000);
+
+    fn gate_over_register_stream(
+        client_version: Option<u32>,
+        server_version: u32,
+    ) -> (
+        Result<Option<ClientType>, String>,
+        Option<GameVersionAnswer>,
+    ) {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            let port = NEXT_PORT.fetch_add(1, Ordering::Relaxed);
+            let mut server = Network::new(Pid::new(), &runtime);
+            let client = Network::new(Pid::new(), &runtime);
+            server.listen(ListenAddr::Mpsc(port)).await.unwrap();
+            let mut client_participant = client.connect(ConnectAddr::Mpsc(port)).await.unwrap();
+            let server_participant = server.connected().await.unwrap();
+            let mut server_stream = server_participant
+                .open(
+                    3,
+                    Promises::ORDERED | Promises::CONSISTENCY | Promises::COMPRESSED,
+                    500,
+                )
+                .await
+                .unwrap();
+            let mut client_stream = client_participant.opened().await.unwrap();
+
+            // Exercise the real compressed register-stream message order:
+            // server info, client hello, then the server admission answer.
+            server_stream
+                .send(ServerInfo {
+                    name: "version-gate-test".to_owned(),
+                    git_hash: 0,
+                    git_timestamp: 0,
+                    auth_provider: None,
+                    game_version: server_version,
+                })
+                .unwrap();
+            let info: ServerInfo = client_stream.recv().await.unwrap();
+            assert_eq!(info.game_version, server_version);
+            let result = if let Some(game_version) = client_version {
+                client_stream
+                    .send(ClientHello {
+                        client_type: ClientType::Game,
+                        game_version,
+                    })
+                    .unwrap();
+                let (accepted, answer) = tokio::join!(
+                    receive_client_hello(&mut server_stream, server_version),
+                    client_stream.recv::<GameVersionAnswer>(),
+                );
+                (
+                    accepted.map_err(|error| error.to_string()),
+                    Some(answer.unwrap()),
+                )
+            } else {
+                client_stream.send(ClientType::Game).unwrap();
+                (
+                    receive_client_hello(&mut server_stream, server_version)
+                        .await
+                        .map_err(|error| error.to_string()),
+                    None,
+                )
+            };
+            drop(server_stream);
+            drop(client_stream);
+            let _ = tokio::join!(
+                server_participant.disconnect(),
+                client_participant.disconnect()
+            );
+            result
+        })
+    }
+
+    #[test]
+    fn matching_numeric_version_is_admitted_before_registration() {
+        let version = common::util::GAME_VERSION;
+        let (accepted, answer) = gate_over_register_stream(Some(version), version);
+        assert_eq!(accepted.unwrap(), Some(ClientType::Game));
+        assert_eq!(answer, Some(Ok(())));
+    }
+
+    #[test]
+    fn mismatched_versions_return_both_numbers_without_admitting_a_client() {
+        for (client, server) in [(0, 1), (2, 1), (1, 2), (u32::MAX, 1)] {
+            let (accepted, answer) = gate_over_register_stream(Some(client), server);
+            assert_eq!(accepted.unwrap(), None);
+            assert_eq!(answer, Some(Err(GameVersionMismatch { client, server })));
+        }
+    }
+
+    #[test]
+    fn legacy_client_type_without_numeric_version_fails_closed() {
+        let (accepted, answer) = gate_over_register_stream(None, common::util::GAME_VERSION);
+        assert!(accepted.is_err());
+        assert!(answer.is_none());
     }
 }

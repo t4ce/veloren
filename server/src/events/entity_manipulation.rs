@@ -202,6 +202,7 @@ impl ServerEvent for PoiseChangeEvent {
 
 #[derive(SystemData)]
 pub struct HealthChangeEventData<'a> {
+    portal_transfers: Read<'a, crate::server_portals::PortalTransfers>,
     entities: Entities<'a>,
     msm: ReadExpect<'a, MaterialStatManifest>,
     #[cfg(feature = "worldgen")]
@@ -231,6 +232,7 @@ impl ServerEvent for HealthChangeEvent {
         let mut emitters = data.events.get_emitters();
         let mut rng = rand::rng();
         for ev in events {
+            if ev.change.amount < 0.0 && data.portal_transfers.is_holding(ev.entity) { continue; }
             if let Some((mut health, inventory, pos, uid, heads)) = (
                 &mut data.healths,
                 data.inventories.maybe(),

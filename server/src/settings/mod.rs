@@ -183,6 +183,8 @@ pub struct Settings {
     pub max_players: u16,
     pub world_seed: u32,
     pub server_name: String,
+    /// None disables town gateway spawning and admission.
+    pub town_portal_destination: Option<String>,
     /// Length of a day in minutes.
     pub day_length: f64,
     /// When set to None, loads the default map file (if available); otherwise,
@@ -222,6 +224,7 @@ impl Default for Settings {
             auth_server_address: Some("https://auth.veloren.net".into()),
             query_address: Some(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 14006))),
             world_seed: DEFAULT_WORLD_SEED,
+            town_portal_destination: Some("server.veloren.net".into()),
             server_name: "Veloren Server".into(),
             max_players: 100,
             day_length: DAY_LENGTH_DEFAULT,

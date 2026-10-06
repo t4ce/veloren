@@ -66,7 +66,7 @@ voxygen-egui = { package = "veloren-voxygen-egui", path = "egui", optional = tru
 
 # Graphics
 winit = { version = "0.30.12", features = ["serde"] }
-wgpu = { version = "=30.0.0", path = "../../wgpu/wgpu", features = ["spirv", "glsl"] }
+wgpu = { version = "=30.0.0", path = "../../../Repos/wgpu/wgpu", features = ["spirv", "glsl"] }
 wgpu-profiler = "0.28"
 bytemuck = { version = "1.7", features = ["derive"] }
 shaderc = "0.10"

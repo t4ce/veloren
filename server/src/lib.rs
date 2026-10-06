@@ -12,6 +12,7 @@ pub mod chat;
 pub mod chunk_generator;
 mod chunk_serialize;
 pub mod client;
+pub(crate) mod server_portals;
 pub mod cmd;
 pub mod connection_handler;
 mod data_dir;
@@ -570,6 +571,7 @@ impl Server {
         sys::sentinel::UpdateTrackers::register(state.ecs_mut());
 
         state.ecs_mut().insert(DeletedEntities::default());
+        state.ecs_mut().insert(server_portals::PortalTransfers::default());
 
         // Only allow clients to send us a maximum of 1 MB per uncompressed message, to
         // reduce the effectiveness of a DoS attack
@@ -732,7 +734,7 @@ impl Server {
 
         debug!(?settings, "created veloren server with");
 
-        info!("Server version: {}", *common::util::DISPLAY_VERSION);
+        info!("Server version: {}", common::util::GAME_VERSION);
 
         Ok(this)
     }
@@ -745,6 +747,7 @@ impl Server {
             git_hash: *common::util::GIT_HASH,
             git_timestamp: *common::util::GIT_TIMESTAMP,
             auth_provider: settings.auth_server_address.clone(),
+            game_version: common::util::GAME_VERSION,
         }
     }
 
@@ -903,6 +906,7 @@ impl Server {
         if self.state.ecs().read_resource::<Tick>().0 == 1 {
             eprintln!("velosrv: first-tick stage=state-tick-enter");
         }
+        server_portals::maintain(self.state.ecs());
         self.state.tick(
             dt,
             false,
@@ -942,6 +946,7 @@ impl Server {
         let before_sync = Instant::now();
 
         // 6) Synchronise clients with the new state of the world.
+        server_portals::maintain(self.state.ecs());
         sys::run_sync_systems(self.state.ecs_mut());
 
         let before_world_tick = Instant::now();

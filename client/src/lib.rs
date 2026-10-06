@@ -636,20 +636,27 @@ impl Client {
         let terrain_stream = participant.opened().await?;
 
         init_stage_update(ClientInitStage::WatingForServerVersion);
-        register_stream.send(client_type)?;
+        register_stream.send(common_net::msg::ClientHello {
+            client_type,
+            game_version: common::util::GAME_VERSION,
+        })?;
         let server_info: ServerInfo = register_stream.recv().await?;
-        if server_info.git_hash != *common::util::GIT_HASH
-            || server_info.git_timestamp != *common::util::GIT_TIMESTAMP
-        {
-            warn!(
-                "Server is running {}, you are running {}, versions might be incompatible!",
-                common::util::make_display_version(server_info.git_hash, server_info.git_timestamp),
-                *common::util::DISPLAY_VERSION,
-            );
-        }
         // Pass the server info back to the caller to ensure they can access it even
         // if this function errors.
         *mismatched_server_info = Some(server_info.clone());
+        register_stream
+            .recv::<common_net::msg::GameVersionAnswer>()
+            .await?
+            .map_err(|mismatch| Error::VersionMismatch {
+                client: mismatch.client,
+                server: mismatch.server,
+            })?;
+        if server_info.game_version != common::util::GAME_VERSION {
+            return Err(Error::VersionMismatch {
+                client: common::util::GAME_VERSION,
+                server: server_info.game_version,
+            });
+        }
         debug!("Auth Server: {:?}", server_info.auth_provider);
 
         ping_stream.send(PingMsg::Ping)?;

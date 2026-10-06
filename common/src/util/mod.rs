@@ -15,6 +15,8 @@ mod ron_recover;
 mod spatial_grid;
 
 pub const VELOREN_VERSION_STAGE: &str = "Pre-Alpha";
+// GAME_VERSION is the compatibility count; Git metadata is only build provenance.
+include!(concat!(env!("OUT_DIR"), "/game_version.rs"));
 const VELOREN_GIT_VERSION_BUILD: &str = env!("VELOREN_GIT_VERSION");
 
 use std::str::FromStr;

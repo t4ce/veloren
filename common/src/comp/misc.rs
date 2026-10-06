@@ -44,6 +44,8 @@ pub enum Object {
         #[serde(skip)]
         pid_controller: Option<PidController<fn(f32, f32) -> f32, 8>>,
     },
+    /// Town gateway; destination admission is coordinated over the game stream.
+    ServerPortal,
 }
 
 impl Component for Object {

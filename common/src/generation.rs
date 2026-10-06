@@ -206,6 +206,7 @@ pub enum SpecialEntity {
     ArenaTotem {
         range: f32,
     },
+    ServerPortal,
 }
 
 #[derive(Clone)]

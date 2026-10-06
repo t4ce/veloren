@@ -63,6 +63,26 @@ impl ClientType {
     pub fn can_send_message(&self) -> bool { !matches!(self, Self::SilentSpectator) }
 }
 
+/// Initial compatibility check, before credentials or game state are sent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClientHello {
+    pub client_type: ClientType,
+    pub game_version: u32,
+}
+
+impl ClientHello {
+    pub fn check_version(&self, server: u32) -> super::GameVersionAnswer {
+        if self.game_version == server {
+            Ok(())
+        } else {
+            Err(super::GameVersionMismatch {
+                client: self.game_version,
+                server,
+            })
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClientRegister {
     pub token_or_username: String,
@@ -131,6 +151,8 @@ pub enum ClientGeneral {
         lossy_terrain_compression: bool,
     },
     RequestPlugins(Vec<PluginHash>),
+    /// Cancel only the matching source-server admission hold.
+    CancelServerPortal(u64),
 }
 
 impl ClientMsg {
@@ -173,7 +195,8 @@ impl ClientMsg {
                         | ClientGeneral::RequestPlayerPhysics { .. }
                         | ClientGeneral::RequestLossyTerrainCompression { .. }
                         | ClientGeneral::UpdateMapMarker(_)
-                        | ClientGeneral::SetBattleMode(_) => {
+                        | ClientGeneral::SetBattleMode(_)
+                        | ClientGeneral::CancelServerPortal(_) => {
                             c_type == ClientType::Game && presence.is_some()
                         },
                         ClientGeneral::SpectatePosition(_) | ClientGeneral::SpectateEntity(_) => {

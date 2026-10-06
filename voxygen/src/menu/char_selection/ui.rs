@@ -21,7 +21,7 @@ use crate::{
     },
     window,
 };
-use client::{Client, ServerInfo};
+use client::Client;
 use common::{
     LoadoutBuilder,
     character::{CharacterId, CharacterItem, MAX_CHARACTERS_PER_PLAYER, MAX_NAME_LENGTH},
@@ -309,7 +309,6 @@ struct Controls {
     imgs: Imgs,
     // Voxygen version
     version: String,
-    server_mismatched_version: Option<String>,
     tooltip_manager: TooltipManager,
     // Zone for rotating the character with the mouse
     mouse_detector: mouse_detector::State,
@@ -368,24 +367,17 @@ impl Controls {
         imgs: Imgs,
         selected: Option<CharacterId>,
         default_name: String,
-        server_info: &ServerInfo,
         map_img: GraphicId,
         possible_starting_sites: Vec<Marker>,
         world_sz: Vec2<u32>,
         has_rules: bool,
     ) -> Self {
         let version = format!("Veloren {}", *common::util::DISPLAY_VERSION);
-        let server_mismatched_version = (*common::util::GIT_HASH != server_info.git_hash
-            || *common::util::GIT_TIMESTAMP != server_info.git_timestamp)
-            .then(|| {
-                common::util::make_display_version(server_info.git_hash, server_info.git_timestamp)
-            });
 
         Self {
             fonts,
             imgs,
             version,
-            server_mismatched_version,
             tooltip_manager: TooltipManager::new(TOOLTIP_HOVER_DUR, TOOLTIP_FADE_DUR),
             mouse_detector: Default::default(),
             mode: Mode::select(Some(InfoContent::LoadingCharacters)),
@@ -443,35 +435,6 @@ impl Controls {
             Space::new(Length::Fill, Length::Shrink).into(),
         ])
         .width(Length::Fill);
-
-        let mut warning_container = if let Some(mismatched_version) =
-            &self.server_mismatched_version
-        {
-            let warning = Text::<IcedRenderer>::new(format!(
-                "{}\n{}: {} {}: {}",
-                i18n.get_msg("char_selection-version_mismatch"),
-                i18n.get_msg("main-login-server_version"),
-                mismatched_version,
-                i18n.get_msg("main-login-client_version"),
-                *common::util::DISPLAY_VERSION
-            ))
-            .size(self.fonts.cyri.scale(18))
-            .color(iced::Color::from_rgb(1.0, 0.0, 0.0))
-            .width(Length::Fill)
-            .horizontal_alignment(HorizontalAlignment::Center);
-            Some(
-                Container::new(
-                    Container::new(Row::with_children(vec![warning.into()]).width(Length::Fill))
-                        .style(style::container::Style::color(Rgba::new(0, 0, 0, 217)))
-                        .padding(12)
-                        .width(Length::Fill)
-                        .center_x(),
-                )
-                .padding(16),
-            )
-        } else {
-            None
-        };
 
         let content = match &mut self.mode {
             Mode::Select {
@@ -1621,13 +1584,7 @@ impl Controls {
 
                 let top = Row::with_children(vec![
                     column_left(left_column_content, left_scroll).into(),
-                    Column::with_children(
-                        if let Some(warning_container) = warning_container.take() {
-                            vec![warning_container.into(), mouse_area.into()]
-                        } else {
-                            vec![mouse_area.into()]
-                        },
-                    )
+                    Column::with_children(vec![mouse_area.into()])
                     .width(Length::Fill)
                     .height(Length::Fill)
                     .into(),
@@ -1745,11 +1702,7 @@ impl Controls {
             },
         };
 
-        let children = if let Some(warning_container) = warning_container {
-            vec![top_text.into(), warning_container.into(), content]
-        } else {
-            vec![top_text.into(), content]
-        };
+        let children = vec![top_text.into(), content];
 
         Container::new(
             Column::with_children(children)
@@ -2113,7 +2066,6 @@ impl CharSelectionUi {
             Imgs::load(&mut ui).expect("Failed to load images"),
             selected_character,
             default_name,
-            client.server_info(),
             ui.add_graphic(Graphic::Image(
                 Arc::clone(client.world_data().topo_map_image()),
                 Some(default_water_color()),

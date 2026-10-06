@@ -74,6 +74,7 @@ impl Sys {
         controller: Option<&mut Controller>,
         settings: &Read<'_, Settings>,
         build_areas: &Read<'_, AreasContainer<BuildArea>>,
+        portal_transfers: &crate::server_portals::PortalTransfers,
         player_physics_setting: Option<&mut PlayerPhysicsSetting>,
         server_physics_forced: bool,
         maybe_admin: &Option<&Admin>,
@@ -89,6 +90,13 @@ impl Sys {
                 return Ok(());
             },
         };
+        if let ClientGeneral::CancelServerPortal(id) = msg {
+            portal_transfers.cancel(entity, id);
+            return Ok(());
+        }
+        if portal_transfers.is_holding(entity) && !matches!(&msg,
+            ClientGeneral::SetViewDistance(_) | ClientGeneral::RequestSiteInfo(_) | ClientGeneral::ExitInGame
+        ) { return Ok(()); }
         match msg {
             // Go back to registered state (char selection screen)
             ClientGeneral::ExitInGame => {
@@ -301,6 +309,7 @@ impl<'a> System<'a> for Sys {
             Read<'a, IdMaps>,
             Read<'a, DeltaTime>,
             Read<'a, Settings>,
+            Read<'a, crate::server_portals::PortalTransfers>,
             Read<'a, AreasContainer<BuildArea>>,
         ),
         ReadStorage<'a, CanBuild>,
@@ -335,7 +344,7 @@ impl<'a> System<'a> for Sys {
             entities,
             events,
             (terrain, slow_jobs, editable_settings),
-            (id_maps, dt, settings, build_areas),
+            (id_maps, dt, settings, portal_transfers, build_areas),
             can_build,
             mut force_updates,
             is_rider,
@@ -433,6 +442,7 @@ impl<'a> System<'a> for Sys {
                             controller.as_deref_mut(),
                             &settings,
                             &build_areas,
+                            &portal_transfers,
                             new_player_physics_setting.as_mut(),
                             is_server_physics_forced,
                             &maybe_admin,

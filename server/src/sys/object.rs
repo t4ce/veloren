@@ -84,7 +84,7 @@ impl<'a> System<'a> for Sys {
                         emitters.emit(DeleteEvent(entity));
                     }
                 },
-                Object::Portal { .. } => {
+                Object::Portal { .. } | Object::ServerPortal => {
                     let is_active = spatial_grid
                         .0
                         .in_circle_aabr(pos.0.xy(), TELEPORTER_RADIUS)

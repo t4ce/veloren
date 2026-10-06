@@ -55,7 +55,17 @@ pub struct ServerInfo {
     pub git_hash: u32,
     pub git_timestamp: i64,
     pub auth_provider: Option<String>,
+    pub game_version: u32,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GameVersionMismatch {
+    pub client: u32,
+    pub server: u32,
+}
+
+/// Server admission decision sent before authentication begins.
+pub type GameVersionAnswer = Result<(), GameVersionMismatch>;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ServerDescription {
@@ -232,6 +242,9 @@ pub enum ServerGeneral {
     UpdateRecipes,
     SetPlayerRole(Option<AdminRole>),
     Gizmos(Vec<Gizmos>),
+    /// Admission offer. Never contains credentials or transferable character data.
+    ServerPortalOffer { transfer_id: u64, destination: String },
+    ServerPortalReleased { transfer_id: u64 },
 }
 
 impl ServerGeneral {
@@ -380,7 +393,9 @@ impl ServerMsg {
                         | ServerGeneral::LocalWindUpdate(_)
                         | ServerGeneral::SpectatePosition(_)
                         | ServerGeneral::UpdateRecipes
-                        | ServerGeneral::Gizmos(_) => {
+                        | ServerGeneral::Gizmos(_)
+                        | ServerGeneral::ServerPortalOffer { .. }
+                        | ServerGeneral::ServerPortalReleased { .. } => {
                             c_type == ClientType::Game && presence.is_some()
                         },
                         // Always possible

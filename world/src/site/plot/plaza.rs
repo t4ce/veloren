@@ -81,11 +81,29 @@ pub struct Plaza {
     pub hard_alt: Option<i32>,
     dir: Dir2,
     decoration: Option<PlazaKind>,
+    server_portal: bool,
     park_surface_col: Rgb<u8>,
     wood_color: Rgb<u8>,
 }
 
 impl Plaza {
+    fn paint_server_portal(&self, land: &Land, painter: &Painter) -> bool {
+        let center = self.aabr.center();
+        let ground = self.hard_alt.unwrap_or_else(|| land.get_alt_approx(center) as i32);
+        // The full 8×8 foundation and 8-block vertical corridor are reserved inside
+        // the plaza, away from lamps, doors and adjoining plots. Steep ground is skipped.
+        if self.hard_alt.is_none() && (-4..4).any(|x| (-4..4).any(|y| {
+            (land.get_alt_approx(center + Vec2::new(x, y)) as i32 - ground).abs() > 1
+        })) { return false; }
+        painter.aabb(Aabb { min: (center - 4).with_z(ground - 2),
+            max: (center + 4).with_z(ground + 1) })
+            .fill(Fill::Brick(BlockKind::Rock, Rgb::new(75, 90, 110), 12));
+        painter.aabb(Aabb { min: (center - 4).with_z(ground + 1),
+            max: (center + 4).with_z(ground + 9) }).clear();
+        painter.spawn(EntityInfo::at(center.with_z(ground + 1).as_())
+            .into_special(common::generation::SpecialEntity::ServerPortal));
+        true
+    }
     pub fn generate(
         tile_aabr: Aabr<i32>,
         kind: RoadKind,
@@ -367,6 +385,9 @@ impl Plaza {
                 .choose(aabr.center().with_z(center.alt), &Dir2::ALL)
                 .expect("Dir::ALL has len 4"),
             decoration,
+            server_portal: site.plazas.is_empty() && min_size >= 12 && matches!(site.kind,
+                Some(SiteKind::Refactor | SiteKind::CliffTown | SiteKind::SavannahTown
+                    | SiteKind::CoastalTown | SiteKind::DesertCity)),
             park_surface_col,
             wood_color,
         }
@@ -469,6 +490,8 @@ impl Structure for Plaza {
                     .with_alignment(Alignment::Tame),
             );
         }
+
+        if self.server_portal && self.paint_server_portal(land, painter) { return; }
 
         if let Some(decoration) = self.decoration.clone() {
             let wood = Fill::PlankWall(BlockKind::Wood, self.wood_color, 4);

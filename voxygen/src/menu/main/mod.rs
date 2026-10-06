@@ -572,22 +572,23 @@ pub(crate) fn get_client_msg_error(
     mismatched_server_info: Option<ServerInfo>,
     localization: &LocalizationGuard,
 ) -> String {
-    // When a network error is received and there is a mismatch between the client
-    // and server version it is almost definitely due to this mismatch rather than
-    // a true networking error.
+    let version_error = |client: u32, server: u32| -> String {
+        format!(
+            "{} {}: {} {}: {}",
+            localization.get_msg("main-login-network_wrong_version"),
+            localization.get_msg("main-login-client_version"),
+            client,
+            localization.get_msg("main-login-server_version"),
+            server,
+        )
+    };
+    // Build metadata does not determine wire compatibility. Only the numeric
+    // game version can identify a version mismatch after ServerInfo arrives.
     let net_error = |error: String, mismatched_server_info: Option<ServerInfo>| -> String {
         if let Some(server_info) = mismatched_server_info.filter(|info| {
-            info.git_hash != *common::util::GIT_HASH
-                || info.git_timestamp != *common::util::GIT_TIMESTAMP
+            info.game_version != common::util::GAME_VERSION
         }) {
-            format!(
-                "{} {}: {} {}: {}",
-                localization.get_msg("main-login-network_wrong_version"),
-                localization.get_msg("main-login-client_version"),
-                *common::util::DISPLAY_VERSION,
-                localization.get_msg("main-login-server_version"),
-                common::util::make_display_version(server_info.git_hash, server_info.git_timestamp),
-            )
+            version_error(common::util::GAME_VERSION, server_info.game_version)
         } else {
             format!(
                 "{}: {}",
@@ -599,6 +600,7 @@ pub(crate) fn get_client_msg_error(
 
     use client::Error;
     match error {
+        Error::VersionMismatch { client, server } => version_error(client, server),
         Error::SpecsErr(e) => {
             format!(
                 "{}: {}",

@@ -1,0 +1,50 @@
+{
+  "graphics": {
+    "terrain_view_distance": 1,
+    "entity_view_distance": 1,
+    "lod_distance": 0,
+    "sprite_render_distance": 50,
+    "figure_lod_render_distance": 50,
+    "lod_detail": 100,
+    "particles_enabled": false,
+    "particles_chance": 0.0,
+    "weapon_trails_enabled": false,
+    "max_fps": {
+      "Max": 15
+    },
+    "max_background_fps": {
+      "Max": 5
+    },
+    "render_mode": {
+      "aa": "None",
+      "cloud": "Flat",
+      "reflection": "Low",
+      "fluid": "Low",
+      "lighting": "Lambertian",
+      "shadow": "None",
+      "rain_enabled": false,
+      "rain_occlusion": {
+        "resolution": 0.25
+      },
+      "bloom": "Off",
+      "point_glow": 0.0,
+      "flashing_lights_enabled": false,
+      "experimental_shaders": [
+        "BareMinimum",
+        "NoCaustics",
+        "NoClouds",
+        "NoDither",
+        "NoHaze",
+        "NoLodVoxels",
+        "NoNoise",
+        "NoRainbows",
+        "UiNearestScaling"
+      ],
+      "upscale_mode": {
+        "factor": 0.1
+      },
+      "present_mode": "Fifo",
+      "profiler_enabled": false
+    }
+  }
+}

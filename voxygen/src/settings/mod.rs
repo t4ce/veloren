@@ -93,6 +93,30 @@ impl Default for Settings {
 }
 
 impl Settings {
+    /// Reapply the local deployment baseline at startup, without locking UI edits.
+    pub fn apply_bringup_profile(&mut self) -> Result<(), serde_json::Error> {
+        fn overlay(current: &mut serde_json::Value, patch: serde_json::Value) {
+            match (current, patch) {
+                (serde_json::Value::Object(current), serde_json::Value::Object(patch)) => {
+                    for (key, value) in patch {
+                        overlay(current.entry(key).or_insert(serde_json::Value::Null), value);
+                    }
+                }
+                (current, patch) => *current = patch,
+            }
+        }
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Profile {
+            graphics: serde_json::Value,
+        }
+        let profile: Profile = serde_json::from_str(include_str!("../../../trueos-bringup-profile.json"))?;
+        let mut graphics = serde_json::to_value(&self.graphics)?;
+        overlay(&mut graphics, profile.graphics);
+        self.graphics = serde_json::from_value(graphics)?;
+        Ok(())
+    }
+
     pub fn load(config_dir: &Path) -> Self {
         let path = Self::get_path(config_dir);
 

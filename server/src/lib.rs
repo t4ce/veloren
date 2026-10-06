@@ -906,6 +906,7 @@ impl Server {
         if self.state.ecs().read_resource::<Tick>().0 == 1 {
             eprintln!("velosrv: first-tick stage=state-tick-enter");
         }
+        server_portals::spawn_pending(&mut self.state);
         server_portals::maintain(self.state.ecs());
         self.state.tick(
             dt,
@@ -946,6 +947,7 @@ impl Server {
         let before_sync = Instant::now();
 
         // 6) Synchronise clients with the new state of the world.
+        server_portals::spawn_pending(&mut self.state);
         server_portals::maintain(self.state.ecs());
         sys::run_sync_systems(self.state.ecs_mut());
 

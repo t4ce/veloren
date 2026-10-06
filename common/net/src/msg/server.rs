@@ -243,7 +243,7 @@ pub enum ServerGeneral {
     SetPlayerRole(Option<AdminRole>),
     Gizmos(Vec<Gizmos>),
     /// Admission offer. Never contains credentials or transferable character data.
-    ServerPortalOffer { transfer_id: u64, destination: String },
+    ServerPortalOffer { transfer_id: u64, destination: String, hover_position: Vec3<f32> },
     ServerPortalReleased { transfer_id: u64 },
 }
 

@@ -385,7 +385,11 @@ impl Plaza {
                 .choose(aabr.center().with_z(center.alt), &Dir2::ALL)
                 .expect("Dir::ALL has len 4"),
             decoration,
-            server_portal: site.plazas.is_empty() && min_size >= 12 && matches!(site.kind,
+            server_portal: !site.plazas.iter().any(|p| matches!(&site.plot(*p).kind, PlotKind::Plaza(plaza) if plaza.server_portal))
+                && min_size >= 12
+                && (hard_alt.is_some() || (-4..4).all(|x| (-4..4).all(|y|
+                    (land.get_alt_approx(aabr.center() + Vec2::new(x, y)) as i32 - land.get_alt_approx(aabr.center()) as i32).abs() <= 1)))
+                && matches!(site.kind,
                 Some(SiteKind::Refactor | SiteKind::CliffTown | SiteKind::SavannahTown
                     | SiteKind::CoastalTown | SiteKind::DesertCity)),
             park_surface_col,

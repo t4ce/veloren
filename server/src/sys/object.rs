@@ -30,6 +30,7 @@ impl<'a> System<'a> for Sys {
         Events<'a>,
         Read<'a, DeltaTime>,
         Read<'a, Time>,
+        Read<'a, crate::server_portals::PortalTransfers>,
         Read<'a, EventBus<Outcome>>,
         Read<'a, CachedSpatialGrid>,
         ReadStorage<'a, Pos>,
@@ -52,6 +53,7 @@ impl<'a> System<'a> for Sys {
             events,
             dt,
             time,
+            portal_transfers,
             outcome_bus,
             spatial_grid,
             positions,
@@ -85,7 +87,7 @@ impl<'a> System<'a> for Sys {
                     }
                 },
                 Object::Portal { .. } | Object::ServerPortal => {
-                    let is_active = spatial_grid
+                    let is_active = portal_transfers.is_portal_active(entity) || spatial_grid
                         .0
                         .in_circle_aabr(pos.0.xy(), TELEPORTER_RADIUS)
                         .any(|entity| {

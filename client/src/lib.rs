@@ -1252,7 +1252,9 @@ impl Client {
                     | ClientGeneral::UpdateMapMarker(_)
                     | ClientGeneral::SpectatePosition(_)
                     | ClientGeneral::SpectateEntity(_)
-                    | ClientGeneral::SetBattleMode(_) => {
+                    | ClientGeneral::SetBattleMode(_)
+                    | ClientGeneral::CancelServerPortal(_)
+                    | ClientGeneral::EnableServerPortals => {
                         #[cfg(feature = "tracy")]
                         {
                             ingame = 1.0;

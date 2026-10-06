@@ -90,6 +90,10 @@ impl Sys {
                 return Ok(());
             },
         };
+        if matches!(msg, ClientGeneral::EnableServerPortals) {
+            if presence.kind.controlling_char() { portal_transfers.enable(entity); }
+            return Ok(());
+        }
         if let ClientGeneral::CancelServerPortal(id) = msg {
             portal_transfers.cancel(entity, id);
             return Ok(());
@@ -98,6 +102,7 @@ impl Sys {
             ClientGeneral::SetViewDistance(_) | ClientGeneral::RequestSiteInfo(_) | ClientGeneral::ExitInGame
         ) { return Ok(()); }
         match msg {
+            ClientGeneral::CancelServerPortal(_) | ClientGeneral::EnableServerPortals => {},
             // Go back to registered state (char selection screen)
             ClientGeneral::ExitInGame => {
                 emitters.emit(event::ExitIngameEvent { entity });

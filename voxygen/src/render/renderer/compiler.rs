@@ -269,9 +269,10 @@ impl Compiler for WgpuCompiler {
         #[expect(unsafe_code)]
         let shader = unsafe { device.create_shader_module_trusted(descriptor, runtimechecks) };
 
-        let rt = tokio::runtime::Runtime::new().unwrap();
-
-        if let Some(error) = rt.block_on(error_scope.pop()) {
+        // Pipeline recreation runs inside a Tokio CPU task. This wgpu
+        // validation future needs no Tokio reactor; nesting Runtime::block_on
+        // here panics whenever a graphics setting rebuilds the shaders.
+        if let Some(error) = futures_executor::block_on(error_scope.pop()) {
             Err(RenderError::ShaderWgpuError(label.to_owned(), error))
         } else {
             Ok(shader)

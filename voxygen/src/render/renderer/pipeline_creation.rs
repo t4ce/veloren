@@ -1183,3 +1183,53 @@ impl<T> PipelineCreation<T> {
         }
     }
 }
+
+#[cfg(all(test, not(feature = "precompiled-shaders")))]
+mod tests {
+    use super::*;
+    use common::assets::AssetExt;
+    use std::time::Duration;
+
+    #[test]
+    fn cloud_modes_recompile_on_tokio_worker_without_nested_runtime() {
+        let instance = wgpu::Instance::default();
+        let adapter = futures_executor::block_on(
+            instance.request_adapter(&wgpu::RequestAdapterOptions::default()),
+        ).expect("cloud shader regression test requires a GPU or software adapter");
+        let (device, _queue) = futures_executor::block_on(
+            adapter.request_device(&wgpu::DeviceDescriptor {
+                required_features: wgpu::Features::IMMEDIATES,
+                required_limits: wgpu::Limits {
+                    max_immediate_size: 64,
+                    ..Default::default()
+                },
+                ..Default::default()
+            }),
+        ).unwrap();
+        let shaders = Shaders::load_expect("voxygen.shaders").read().clone();
+        let pool = tokio_parallel::ThreadPoolBuilder::new()
+            .num_threads(1)
+            .build()
+            .unwrap();
+        let (completed, result) = std::sync::mpsc::channel();
+        pool.spawn(move || {
+            assert!(tokio::runtime::Handle::try_current().is_ok());
+            let (mut modes, _) = crate::render::RenderMode::default().split();
+            modes.enable_naga = true;
+            for cloud in [CloudMode::Flat, CloudMode::Minimal, CloudMode::Low, CloudMode::Flat] {
+                modes.cloud = cloud;
+                ShaderModules::new(&device, &shaders, &modes, false)
+                    .unwrap_or_else(|error| panic!("{cloud:?}: {error:?}"));
+            }
+            // Invalid GLSL must still return its captured validation error.
+            use super::super::compiler::Compiler;
+            let mut compiler = WgpuCompiler::new(|_, _| unreachable!()).unwrap();
+            assert!(matches!(
+                compiler.create_shader_module(&device, "invalid GLSL", ShaderStage::Vertex, "invalid"),
+                Err(RenderError::ShaderWgpuError(_, _))
+            ));
+            completed.send(()).unwrap();
+        });
+        result.recv_timeout(Duration::from_secs(120)).unwrap();
+    }
+}

@@ -30,9 +30,7 @@
       "point_glow": 0.0,
       "flashing_lights_enabled": false,
       "experimental_shaders": [
-        "BareMinimum",
         "NoCaustics",
-        "NoClouds",
         "NoDither",
         "NoHaze",
         "NoLodVoxels",

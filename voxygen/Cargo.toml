@@ -70,6 +70,8 @@ wgpu = { version = "=30.0.0", path = "../../../Repos/wgpu/wgpu", features = ["sp
 wgpu-profiler = "0.28"
 bytemuck = { version = "1.7", features = ["derive"] }
 shaderc = "0.10"
+# Wait for shader-validation futures without entering another Tokio runtime.
+futures-executor = "0.3.32"
 
 # Ui
 conrod_core = { path = "../vendor/conrod/conrod_core" }

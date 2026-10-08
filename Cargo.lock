@@ -8384,6 +8384,7 @@ dependencies = [
  "egui-winit",
  "enum-map",
  "euc",
+ "futures-executor",
  "gilrs",
  "glyph_brush",
  "guillotiere",

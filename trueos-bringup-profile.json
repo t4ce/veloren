@@ -30,16 +30,10 @@
       "point_glow": 0.0,
       "flashing_lights_enabled": false,
       "experimental_shaders": [
-        "NoCaustics",
-        "NoDither",
-        "NoHaze",
-        "NoLodVoxels",
-        "NoNoise",
-        "NoRainbows",
-        "UiNearestScaling"
+        "NoNoise"
       ],
       "upscale_mode": {
-        "factor": 0.1
+        "factor": 0.25
       },
       "present_mode": "Fifo",
       "profiler_enabled": false

@@ -1,6 +1,6 @@
 use super::{
     ClientType, CompressedData, EcsCompPacket, PingMsg, QuadPngEncoding, TriPngEncoding,
-    WidePacking, WireChonk, world_msg::EconomyInfo,
+    WidePacking, WireChonk, terrain_lz4::Lz4TerrainChunkV1, world_msg::EconomyInfo,
 };
 use crate::sync;
 use common::{
@@ -100,6 +100,8 @@ pub enum SerializedTerrainChunk {
     DeflatedChonk(CompressedData<TerrainChunk>),
     QuadPng(WireChonk<QuadPngEncoding<4>, WidePacking<true>, TerrainChunkMeta, TerrainChunkSize>),
     TriPng(WireChonk<TriPngEncoding<false>, WidePacking<true>, TerrainChunkMeta, TerrainChunkSize>),
+    // Append only: preserve the legacy bincode variant IDs.
+    Lz4VoxelsV1(Lz4TerrainChunkV1),
 }
 
 impl SerializedTerrainChunk {
@@ -108,6 +110,7 @@ impl SerializedTerrainChunk {
             SerializedTerrainChunk::DeflatedChonk(data) => data.data.len(),
             SerializedTerrainChunk::QuadPng(data) => data.data.data.len(),
             SerializedTerrainChunk::TriPng(data) => data.data.data.len(),
+            SerializedTerrainChunk::Lz4VoxelsV1(data) => data.data.len(),
         }
     }
 
@@ -117,6 +120,14 @@ impl SerializedTerrainChunk {
         } else {
             Self::deflate(chunk)
         }
+    }
+
+    /// Preferred game-version-3 terrain format. Oversized chunks keep the
+    /// existing lossless codec; there is no PNG/color-loss fallback.
+    pub fn lossless_lz4(chunk: &TerrainChunk, revision: u64) -> Self {
+        Lz4TerrainChunkV1::from_chunk(chunk, revision)
+            .map(Self::Lz4VoxelsV1)
+            .unwrap_or_else(|| Self::deflate(chunk))
     }
 
     pub fn deflate(chunk: &TerrainChunk) -> Self {
@@ -146,6 +157,7 @@ impl SerializedTerrainChunk {
             Self::DeflatedChonk(chonk) => chonk.decompress(),
             Self::QuadPng(wc) => wc.to_chonk(),
             Self::TriPng(wc) => wc.to_chonk(),
+            Self::Lz4VoxelsV1(data) => data.to_chunk(),
         }
     }
 }

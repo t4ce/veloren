@@ -2,6 +2,7 @@ pub mod client;
 pub mod compression;
 pub mod ecs_packet;
 pub mod server;
+pub mod terrain_lz4;
 pub mod world_msg;
 
 // Reexports

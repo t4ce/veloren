@@ -4,7 +4,7 @@ use crate::{
     client::Client,
     metrics::NetworkRequestMetrics,
 };
-use common::{comp::Presence, event::EventBus, slowjob::SlowJobPool, terrain::TerrainGrid};
+use common::{event::EventBus, slowjob::SlowJobPool, terrain::TerrainGrid};
 use common_ecs::{Job, Origin, Phase, System};
 use common_net::msg::{SerializedTerrainChunk, ServerGeneral};
 use hashbrown::{HashMap, hash_map::Entry};
@@ -21,7 +21,6 @@ impl<'a> System<'a> for Sys {
     type SystemData = (
         Read<'a, Tick>,
         ReadStorage<'a, Client>,
-        ReadStorage<'a, Presence>,
         ReadExpect<'a, EventBus<ChunkSendEntry>>,
         ReadExpect<'a, NetworkRequestMetrics>,
         ReadExpect<'a, SlowJobPool>,
@@ -38,7 +37,6 @@ impl<'a> System<'a> for Sys {
         (
             tick,
             clients,
-            presences,
             chunk_send_queues_bus,
             network_metrics,
             slow_jobs,
@@ -54,7 +52,6 @@ impl<'a> System<'a> for Sys {
 
         struct Metadata {
             recipients: Vec<Entity>,
-            lossy_compression: bool,
             params: StreamParams,
         }
 
@@ -72,7 +69,6 @@ impl<'a> System<'a> for Sys {
                             distinct_requests += 1;
                             ve.insert(Metadata {
                                 recipients: Vec::new(),
-                                lossy_compression: true,
                                 params,
                             })
                         },
@@ -82,14 +78,6 @@ impl<'a> System<'a> for Sys {
                 Entry::Occupied(oe) => oe.into_mut(),
             };
 
-            // We decide here, to ONLY send lossy compressed data If all clients want those.
-            // If at least 1 client here does not want lossy we don't compress it twice.
-            // It would just be too expensive for the server
-            meta.lossy_compression = meta.lossy_compression
-                && presences
-                    .get(queue_entry.entity)
-                    .map(|p| p.lossy_terrain_compression)
-                    .unwrap_or(true);
             meta.recipients.push(queue_entry.entity);
             requests += 1;
         }
@@ -112,6 +100,7 @@ impl<'a> System<'a> for Sys {
             })
             .peekable();
 
+        let terrain_revision = tick.0;
         while chunks_iter.peek().is_some() {
             let chunks: Vec<_> = chunks_iter.by_ref().take(CHUNK_SIZE).collect();
             let chunk_sender = chunk_sender.clone();
@@ -120,9 +109,9 @@ impl<'a> System<'a> for Sys {
                     let msg = Client::prepare_chunk_update_msg(
                         ServerGeneral::TerrainChunkUpdate {
                             key: chunk_key,
-                            chunk: Ok(SerializedTerrainChunk::via_heuristic(
+                            chunk: Ok(SerializedTerrainChunk::lossless_lz4(
                                 &chunk,
-                                meta.lossy_compression,
+                                terrain_revision,
                             )),
                         },
                         &meta.params,
@@ -130,7 +119,7 @@ impl<'a> System<'a> for Sys {
                     meta.recipients.sort_unstable();
                     meta.recipients.dedup();
                     if let Err(e) = chunk_sender.send(SerializedChunk {
-                        lossy_compression: meta.lossy_compression,
+                        lossy_compression: false,
                         msg,
                         recipients: meta.recipients,
                     }) {

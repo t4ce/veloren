@@ -1,0 +1,83 @@
+LOSSLESS TERRAIN WIRE CONTRACT — V1
+
+Scope
+  Ubuntu server-cli -> Voxy TRUEOS Blueprint. Game version 3 is required on
+  both endpoints; the existing admission gate rejects mismatched versions.
+  GAME_VERSION in srvlocal is already a symlink to Voxy's GAME_VERSION.
+
+Envelope
+  Existing ServerGeneral::TerrainChunkUpdate { key, chunk } and reliable
+  terrain stream are retained. SerializedTerrainChunk::Lz4VoxelsV1 is appended
+  as variant 3; legacy variant IDs 0..2 remain unchanged. The outer message
+  uses the existing bincode 2 serde legacy configuration.
+
+Lz4TerrainChunkV1 fields, in serde order
+  version:u16 = 1
+  revision:u64 = server tick when the immutable chunk snapshot is queued
+  width:u16 = 32; depth:u16 = 32
+  zmin:i32; zmax:i32 (exclusive)
+  below:[u8;4]; above:[u8;4] (defaults outside the stored interval)
+  meta:TerrainChunkMeta (existing game-versioned serde metadata)
+  uncompressed_len:u32
+  data:Vec<u8> (one independent raw LZ4 block)
+
+Voxel layout
+  Four bytes per cell: BlockKind, then the three exact raw Block data bytes.
+  These are RGB for filled blocks and sprite/category/attribute bits for
+  unfilled blocks. This is Block::to_u32().to_le_bytes(), independent of Rust
+  struct layout. No downsampling, palette loss, color conversion or PNG.
+
+  x varies fastest, then y, then z. Byte offset:
+    4 * (x + width * (y + depth * (z - zmin)))
+  x/y are local chunk coordinates; the outer key locates the chunk in XY.
+  z is a world coordinate. No dictionary, LZ4 frame or embedded size prefix.
+  Only voxel bytes are LZ4 compressed; bounds, defaults and metadata belong
+  to the envelope. The terrain stream does not gain COMPRESSED, so this
+  payload is not compressed again by the socket/message layer.
+
+Validation and fallback
+  Height must be nonnegative, a multiple of Chonk's 16-cell subchunk height,
+  and <= 2048. Maximum decoded voxel allocation is 8 MiB. Checked arithmetic,
+  exact advertised/output lengths, compressed size bounds and Block/sprite
+  validation precede insertion. Empty intervals and all-default tails retain
+  exact bounds. A source chunk outside this format's bounds falls back to
+  the existing lossless DeflatedChonk, never to lossy PNG.
+
+Server integration
+  server/src/sys/chunk_serialize.rs uses lossless_lz4 for full chunk snapshots
+  in its existing deduplicated SlowJob batch. The old client lossy preference
+  is retained in the broader protocol but does not select this codec.
+  TerrainBlockUpdates retain their existing lossless format and stream order.
+  Revision is connection/world scoped, not a globally unique revision or
+  an acknowledgement. This change adds no stale-update rejection policy.
+
+Client integration
+  SerializedTerrainChunk::to_chunk dispatches to the new codec through the
+  existing decode worker and insertion path. decode() exposes validated dense
+  voxel bytes plus bounds/defaults/metadata; into_chunk() separately rebuilds
+  the gameplay/collision TerrainChunk. The current client uses to_chunk().
+  GPU residency, GPU decompression and compute meshing are subsequent work.
+
+Verification
+  The same common/net/tests/terrain_lz4.rs is used at both endpoints. It
+  checks exact bytes, colors, sprite attributes, metadata/defaults/bounds,
+  malformed payload rejection, old-codec fallback and production messages.
+
+  Ubuntu server:
+    cargo test --locked --offline -p veloren-common-net --test terrain_lz4
+    cargo build --locked --offline -p veloren-server-cli
+
+  Voxy host tests (production common/net, isolated from TRUEOS image patches):
+    cd tests/terrain-wire
+    cargo test --locked --offline
+  That directory pins the Blueprint's nightly-2026-07-10 toolchain.
+
+  Cross-endpoint test: run the server suite with TERRAIN_WIRE_WRITE pointing
+  at a server fixture; run the client suite with TERRAIN_WIRE_READ pointing
+  at that fixture and TERRAIN_WIRE_WRITE at a client fixture; finally run the
+  server cross_endpoint_serialized_fixture test with TERRAIN_WIRE_READ at
+  the client fixture. Each fixture is a complete TerrainChunkUpdate message.
+
+  Blueprint packaging uses the normal trueos-blueprint builder with
+  TRUEOS_BLUEPRINT_SKIP_APPS_PUBLISH=1 for a local build without publication.
+  Codec unit tests and packaging do not constitute a live world-entry test.
